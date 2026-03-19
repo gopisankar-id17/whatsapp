@@ -1,0 +1,234 @@
+import React, { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
+
+export default function Login() {
+  const { login, register } = useAuth();
+  const [isLogin, setIsLogin]   = useState(true);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState('');
+  const [form, setForm]         = useState({ name: '', email: '', password: '' });
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+    setError('');
+  };
+
+  const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  setError('');
+
+  try {
+    if (isLogin) {
+      console.log('Attempting login with:', form.email);
+      const result = await login(form.email, form.password);
+      console.log('Login result:', result);
+    } else {
+      if (!form.name.trim()) return setError('Name is required');
+      if (form.password.length < 6) return setError('Password must be at least 6 characters');
+      const result = await register(form.name, form.email, form.password);
+      console.log('Register result:', result);
+    }
+  } catch (err) {
+    console.error('Full error:', err);
+    console.error('Response data:', err.response?.data);
+    setError(err.response?.data?.error || 'Something went wrong. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
+
+
+
+  return (
+    <div style={styles.page}>
+      <div style={styles.card}>
+        {/* Logo */}
+        <div style={styles.logoWrap}>
+          <div style={styles.logoCircle}>
+            <svg width="36" height="36" viewBox="0 0 64 64" fill="none">
+              <path d="M32 6C17.64 6 6 17.64 6 32c0 4.84 1.32 9.38 3.63 13.26L6 58l13.08-3.42A25.85 25.85 0 0 0 32 58c14.36 0 26-11.64 26-26S46.36 6 32 6z" fill="#fff"/>
+              <path d="M44.5 37.86c-.68-.34-4.02-1.98-4.64-2.2-.62-.23-1.07-.34-1.52.34-.45.68-1.75 2.2-2.14 2.65-.4.45-.79.51-1.47.17-4.02-2.01-6.66-3.59-9.31-8.14-.7-1.21.7-1.12 2-3.74.23-.45.11-.85-.06-1.19-.17-.34-1.52-3.66-2.08-5.01-.55-1.31-1.11-1.13-1.52-1.15-.4-.02-.85-.02-1.3-.02-.45 0-1.19.17-1.81.85-.62.68-2.37 2.31-2.37 5.63 0 3.32 2.43 6.52 2.77 6.97.34.45 4.77 7.28 11.56 10.22 4.3 1.86 5.98 2.02 8.13 1.7 1.31-.19 4.02-1.64 4.59-3.23.56-1.58.56-2.93.39-3.22-.17-.28-.62-.45-1.3-.79z" fill="#008069"/>
+            </svg>
+          </div>
+          <h1 style={styles.appName}>WhatsApp</h1>
+          <p style={styles.tagline}>
+            {isLogin ? 'Sign in to continue' : 'Create your account'}
+          </p>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} style={styles.form}>
+          {!isLogin && (
+            <div style={styles.fieldWrap}>
+              <label style={styles.label}>Your name</label>
+              <input
+                name="name"
+                type="text"
+                placeholder="John Doe"
+                value={form.name}
+                onChange={handleChange}
+                style={styles.input}
+                required={!isLogin}
+                autoComplete="name"
+              />
+            </div>
+          )}
+
+          <div style={styles.fieldWrap}>
+            <label style={styles.label}>Email address</label>
+            <input
+              name="email"
+              type="email"
+              placeholder="you@example.com"
+              value={form.email}
+              onChange={handleChange}
+              style={styles.input}
+              required
+              autoComplete="email"
+            />
+          </div>
+
+          <div style={styles.fieldWrap}>
+            <label style={styles.label}>Password</label>
+            <input
+              name="password"
+              type="password"
+              placeholder={isLogin ? '••••••••' : 'Min. 6 characters'}
+              value={form.password}
+              onChange={handleChange}
+              style={styles.input}
+              required
+              autoComplete={isLogin ? 'current-password' : 'new-password'}
+            />
+          </div>
+
+          {error && <p style={styles.error}>{error}</p>}
+
+          <button type="submit" style={styles.btn} disabled={loading}>
+            {loading ? 'Please wait...' : isLogin ? 'Sign in' : 'Create account'}
+          </button>
+        </form>
+
+        {/* Toggle */}
+        <p style={styles.toggle}>
+          {isLogin ? "Don't have an account? " : 'Already have an account? '}
+          <span
+            style={styles.toggleLink}
+            onClick={() => { setIsLogin(!isLogin); setError(''); setForm({ name: '', email: '', password: '' }); }}
+          >
+            {isLogin ? 'Sign up' : 'Sign in'}
+          </span>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+const styles = {
+  page: {
+    minHeight: '100vh',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: '#f0f2f5',
+    padding: '20px',
+    fontFamily: "'Inter', -apple-system, sans-serif",
+  },
+  card: {
+    background: '#fff',
+    borderRadius: '16px',
+    padding: '40px 36px',
+    width: '100%',
+    maxWidth: '400px',
+    boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+  },
+  logoWrap: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    marginBottom: '32px',
+    gap: '10px',
+  },
+  logoCircle: {
+    width: '72px',
+    height: '72px',
+    borderRadius: '50%',
+    background: '#008069',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  appName: {
+    fontSize: '26px',
+    fontWeight: '700',
+    color: '#111b21',
+    margin: 0,
+    letterSpacing: '-0.5px',
+  },
+  tagline: {
+    fontSize: '14px',
+    color: '#667781',
+    margin: 0,
+  },
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
+  },
+  fieldWrap: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+  },
+  label: {
+    fontSize: '13px',
+    fontWeight: '500',
+    color: '#111b21',
+  },
+  input: {
+    padding: '11px 14px',
+    borderRadius: '8px',
+    border: '1.5px solid #e9edef',
+    fontSize: '15px',
+    color: '#111b21',
+    outline: 'none',
+    background: '#f0f2f5',
+    transition: 'border-color 0.15s',
+    fontFamily: 'inherit',
+  },
+  error: {
+    fontSize: '13px',
+    color: '#dc3545',
+    background: '#fff5f5',
+    border: '1px solid #fecaca',
+    borderRadius: '8px',
+    padding: '10px 14px',
+    margin: 0,
+  },
+  btn: {
+    padding: '13px',
+    borderRadius: '8px',
+    background: '#008069',
+    color: '#fff',
+    fontSize: '15px',
+    fontWeight: '600',
+    border: 'none',
+    cursor: 'pointer',
+    marginTop: '4px',
+    transition: 'background 0.15s',
+    fontFamily: 'inherit',
+  },
+  toggle: {
+    textAlign: 'center',
+    fontSize: '14px',
+    color: '#667781',
+    marginTop: '20px',
+    marginBottom: 0,
+  },
+  toggleLink: {
+    color: '#008069',
+    fontWeight: '600',
+    cursor: 'pointer',
+  },
+};
