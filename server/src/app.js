@@ -11,10 +11,18 @@ const allowedOrigins = (
 
 // ── Plugins ───────────────────────────────────────────────────
 fastify.register(require('@fastify/cors'), {
+  const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:3000')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
   origin: (origin, cb) => {
     // allow requests with no origin (like mobile apps / curl)
     if (!origin) return cb(null, true);
-
+    origin(origin, cb) {
+      // Allow same-origin or server-to-server (no Origin header)
+      if (!origin) return cb(null, true);
+      if (allowedOrigins.includes(origin)) return cb(null, true);
+      return cb(new Error('Not allowed by CORS'));
     if (allowedOrigins.includes(origin)) {
       cb(null, true);
     } else {
@@ -63,11 +71,11 @@ const start = async () => {
 
     await fastify.listen({
       port: PORT,
-      host: '0.0.0.0',
-    });
-
-    // ✅ Attach Socket.IO with same allowed origins
-    const io = new Server(fastify.server, {
+        cors: {
+          origin: allowedOrigins,
+          methods: ['GET', 'POST'],
+          credentials: true,
+        },
       cors: {
         origin: (origin, cb) => {
           if (!origin) return cb(null, true);
