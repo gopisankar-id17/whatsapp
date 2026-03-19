@@ -8,6 +8,15 @@ export const chatService = {
   createConversation: (userId) =>
     api.post('/api/conversations', { userId }),
 
+  deleteConversation: (conversationId) =>
+    api.delete(`/api/conversations/${conversationId}`),
+
+  acceptInvite: (conversationId) =>
+    api.post(`/api/conversations/${conversationId}/accept`),
+
+  declineInvite: (conversationId) =>
+    api.post(`/api/conversations/${conversationId}/decline`),
+
   // ── Messages ───────────────────────────────────────────────
   getMessages: (conversationId, page = 1, limit = 50) =>
     api.get(`/api/messages/${conversationId}`, { params: { page, limit } }),

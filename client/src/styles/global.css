@@ -345,6 +345,20 @@ html, body, #root {
 
 .chat-header-status.online { color: var(--wa-green); }
 
+.avatar-button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 50%;
+  display: inline-flex;
+}
+
+.avatar-button:focus-visible {
+  outline: 2px solid var(--wa-green);
+  outline-offset: 2px;
+}
+
 /* ── Messages ── */
 .messages-container {
   flex: 1;
@@ -355,6 +369,30 @@ html, body, #root {
   gap: 2px;
   scrollbar-width: thin;
   scrollbar-color: rgba(0,0,0,0.15) transparent;
+}
+
+.messages-loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--wa-text-muted);
+  font-size: 14px;
+}
+
+.loading-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #d9dee3;
+  border-top-color: var(--wa-green);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .messages-container::-webkit-scrollbar { width: 6px; }
@@ -540,6 +578,15 @@ html, body, #root {
   background: #f0f2f5;
   border-top: 1px solid var(--wa-divider);
   flex-shrink: 0;
+}
+
+.message-input-area.disabled {
+  opacity: 0.6;
+}
+
+.message-input-area.disabled .send-btn,
+.message-input-area.disabled .input-action-btn {
+  pointer-events: none;
 }
 
 .input-box-wrapper {

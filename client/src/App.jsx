@@ -149,6 +149,8 @@ function App() {
   };
 
   const handleSelectChat = async (conv) => {
+    if (!conv?.id) return;
+    if (selectedChat?.id === conv.id) return;
     if (selectedChat) leaveRoom(selectedChat.id);
     setSelectedChat(conv);
     setMessages([]);
