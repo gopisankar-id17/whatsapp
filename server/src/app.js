@@ -3,9 +3,24 @@ const fastify = require('fastify')({ logger: true });
 const { Server } = require('socket.io');
 const initSocket = require('./socket');
 
+// ✅ Allow multiple origins (LOCAL + VERCEL)
+const allowedOrigins = (
+  process.env.CLIENT_URL ||
+  'http://localhost:3000,https://whatsapp-peach-three.vercel.app'
+).split(',');
+
 // ── Plugins ───────────────────────────────────────────────────
 fastify.register(require('@fastify/cors'), {
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: (origin, cb) => {
+    // allow requests with no origin (like mobile apps / curl)
+    if (!origin) return cb(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Not allowed by CORS'), false);
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 });
@@ -15,8 +30,8 @@ fastify.register(require('@fastify/multipart'), {
 });
 
 // ── Routes ────────────────────────────────────────────────────
-fastify.register(require('./routes/auth.routes'),   { prefix: '/api/auth' });
-fastify.register(require('./routes/chat.routes'),   { prefix: '/api' });
+fastify.register(require('./routes/auth.routes'), { prefix: '/api/auth' });
+fastify.register(require('./routes/chat.routes'), { prefix: '/api' });
 fastify.register(require('./routes/upload.routes'), { prefix: '/api/upload' });
 
 // ── Health check ──────────────────────────────────────────────
@@ -26,6 +41,7 @@ fastify.get('/health', async () => ({
   service: 'whatsapp-server',
 }));
 
+// ── Test Supabase ─────────────────────────────────────────────
 fastify.get('/test-supabase', async (request, reply) => {
   const { supabaseAdmin } = require('./config/supabase');
   try {
@@ -33,21 +49,35 @@ fastify.get('/test-supabase', async (request, reply) => {
       .from('profiles')
       .select('*')
       .limit(1);
+
     return reply.send({ data, error });
   } catch (err) {
     return reply.send({ err: err.message });
   }
 });
-// ── Start ─────────────────────────────────────────────────────
+
+// ── Start Server ──────────────────────────────────────────────
 const start = async () => {
   try {
     const PORT = process.env.PORT || 3001;
-    await fastify.listen({ port: PORT, host: '0.0.0.0' });
 
-    // Attach Socket.IO to Fastify's HTTP server
+    await fastify.listen({
+      port: PORT,
+      host: '0.0.0.0',
+    });
+
+    // ✅ Attach Socket.IO with same allowed origins
     const io = new Server(fastify.server, {
       cors: {
-        origin: process.env.CLIENT_URL || 'http://localhost:3000',
+        origin: (origin, cb) => {
+          if (!origin) return cb(null, true);
+
+          if (allowedOrigins.includes(origin)) {
+            cb(null, true);
+          } else {
+            cb(new Error('Socket CORS not allowed'), false);
+          }
+        },
         methods: ['GET', 'POST'],
         credentials: true,
       },
@@ -55,7 +85,7 @@ const start = async () => {
 
     initSocket(io);
 
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`🚀 Server running on port ${PORT}`);
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);
