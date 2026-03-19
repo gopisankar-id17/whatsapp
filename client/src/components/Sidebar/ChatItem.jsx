@@ -1,10 +1,9 @@
 export default function ChatItem({ conversation, colorIndex, isActive, onClick, currentUserId }) {
-  // Get the other participant (not current user)
-  const other = conversation.conversation_participants?.find(
-    p => p.user_id !== currentUserId
-  );
-  
-  const name         = other?.profiles?.name || 'Unknown';
+  // Pick the non-self participant (loose compare to avoid string/uuid mismatch); fallback to first participant
+  const participants = conversation.conversation_participants || [];
+  const other = participants.find((p) => `${p.user_id}` !== `${currentUserId}`) || participants[0];
+
+  const name         = other?.profiles?.name || other?.profiles?.email || 'Unknown';
   const avatarUrl    = other?.profiles?.avatar_url;
   const isOnline     = other?.profiles?.is_online || false;
   const lastMessage  = conversation.messages?.[0]?.text || 'No messages yet';
