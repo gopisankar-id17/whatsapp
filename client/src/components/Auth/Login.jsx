@@ -7,36 +7,56 @@ export default function Login() {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
   const [form, setForm]         = useState({ name: '', email: '', password: '' });
+  const [showPwd, setShowPwd]   = useState(false);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
     setError('');
   };
 
-  const handleSubmit = async (e) => {
-  e.preventDefault();
-  setLoading(true);
-  setError('');
+  const validate = () => {
+    if (!form.email.trim()) return 'Email is required';
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email);
+    if (!emailOk) return 'Enter a valid email';
 
-  try {
-    if (isLogin) {
-      console.log('Attempting login with:', form.email);
-      const result = await login(form.email, form.password);
-      console.log('Login result:', result);
-    } else {
-      if (!form.name.trim()) return setError('Name is required');
-      if (form.password.length < 6) return setError('Password must be at least 6 characters');
-      const result = await register(form.name, form.email, form.password);
-      console.log('Register result:', result);
+    if (!isLogin) {
+      if (!form.name.trim()) return 'Name is required';
+      if (form.password.length < 6) return 'Password must be at least 6 characters';
     }
-  } catch (err) {
-    console.error('Full error:', err);
-    console.error('Response data:', err.response?.data);
-    setError(err.response?.data?.error || 'Something went wrong. Please try again.');
-  } finally {
-    setLoading(false);
-  }
-};
+
+    if (!form.password) return 'Password is required';
+    return '';
+  };
+
+  const mapError = (err) => {
+    const msg = err?.response?.data?.error || err?.message || '';
+    if (err?.response?.status === 401) return 'Invalid email or password';
+    if (err?.response?.status === 409) return 'Email already registered';
+    if (/Invalid login credentials/i.test(msg)) return 'Invalid email or password';
+    return msg || 'Something went wrong. Please try again.';
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const validationError = validate();
+    if (validationError) return setError(validationError);
+
+    setLoading(true);
+    setError('');
+
+    try {
+      if (isLogin) {
+        await login(form.email.trim(), form.password);
+      } else {
+        await register(form.name.trim(), form.email.trim(), form.password);
+      }
+    } catch (err) {
+      console.error('Auth error:', err);
+      setError(mapError(err));
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
 
@@ -91,16 +111,26 @@ export default function Login() {
 
           <div style={styles.fieldWrap}>
             <label style={styles.label}>Password</label>
-            <input
-              name="password"
-              type="password"
-              placeholder={isLogin ? '••••••••' : 'Min. 6 characters'}
-              value={form.password}
-              onChange={handleChange}
-              style={styles.input}
-              required
-              autoComplete={isLogin ? 'current-password' : 'new-password'}
-            />
+            <div style={styles.pwdWrap}>
+              <input
+                name="password"
+                type={showPwd ? 'text' : 'password'}
+                placeholder={isLogin ? '••••••••' : 'Min. 6 characters'}
+                value={form.password}
+                onChange={handleChange}
+                style={styles.input}
+                required
+                autoComplete={isLogin ? 'current-password' : 'new-password'}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPwd((v) => !v)}
+                style={styles.pwdToggle}
+                aria-label={showPwd ? 'Hide password' : 'Show password'}
+              >
+                {showPwd ? 'Hide' : 'Show'}
+              </button>
+            </div>
           </div>
 
           {error && <p style={styles.error}>{error}</p>}
@@ -196,6 +226,21 @@ const styles = {
     background: '#f0f2f5',
     transition: 'border-color 0.15s',
     fontFamily: 'inherit',
+  },
+  pwdWrap: {
+    position: 'relative',
+    display: 'flex',
+    alignItems: 'center',
+  },
+  pwdToggle: {
+    position: 'absolute',
+    right: '10px',
+    background: 'transparent',
+    border: 'none',
+    color: '#008069',
+    fontWeight: 600,
+    cursor: 'pointer',
+    padding: '4px 6px',
   },
   error: {
     fontSize: '13px',

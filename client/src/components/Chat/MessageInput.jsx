@@ -1,13 +1,15 @@
 import React, { useState, useRef } from 'react';
 
-export default function MessageInput({ onSend }) {
+export default function MessageInput({ onSend, onTyping }) {
   const [text, setText] = useState('');
   const textareaRef = useRef(null);
+  const typingTimer = useRef(null);
 
   const handleSend = () => {
     if (!text.trim()) return;
     onSend(text.trim());
     setText('');
+    onTyping?.(false);
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
@@ -22,11 +24,19 @@ export default function MessageInput({ onSend }) {
 
   const handleInput = (e) => {
     setText(e.target.value);
+    onTyping?.(true);
+    if (typingTimer.current) clearTimeout(typingTimer.current);
+    typingTimer.current = setTimeout(() => onTyping?.(false), 1200);
     const ta = textareaRef.current;
     if (ta) {
       ta.style.height = 'auto';
       ta.style.height = Math.min(ta.scrollHeight, 100) + 'px';
     }
+  };
+
+  const handleBlur = () => {
+    onTyping?.(false);
+    if (typingTimer.current) clearTimeout(typingTimer.current);
   };
 
   return (
@@ -46,6 +56,7 @@ export default function MessageInput({ onSend }) {
           value={text}
           onChange={handleInput}
           onKeyDown={handleKeyDown}
+          onBlur={handleBlur}
         />
         {/* Attach */}
         <button className="input-action-btn" title="Attach">

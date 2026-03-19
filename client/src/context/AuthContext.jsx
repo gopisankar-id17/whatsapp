@@ -20,6 +20,9 @@ export function AuthProvider({ children }) {
         setUser(JSON.parse(storedUser));
         setProfile(storedProfile ? JSON.parse(storedProfile) : null);
         api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+        if (!storedProfile) {
+          fetchProfile();
+        }
       }
     } catch (err) {
       localStorage.clear();
@@ -28,15 +31,33 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  const fetchProfile = async () => {
+    try {
+      const { data } = await api.get('/api/auth/me');
+      if (data?.profile) {
+        setProfile(data.profile);
+        localStorage.setItem('wa_profile', JSON.stringify(data.profile));
+      }
+      if (data?.user) {
+        setUser(data.user);
+        localStorage.setItem('wa_user', JSON.stringify(data.user));
+      }
+    } catch (err) {
+      // ignore
+    }
+  };
+
   const login = async (email, password) => {
     const { data } = await api.post('/api/auth/login', { email, password });
     saveSession(data);
+    await fetchProfile();
     return data;
   };
 
   const register = async (name, email, password) => {
     const { data } = await api.post('/api/auth/register', { name, email, password });
     saveSession(data);
+    await fetchProfile();
     return data;
   };
 

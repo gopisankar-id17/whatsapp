@@ -179,16 +179,33 @@ const searchUsers = async (request, reply) => {
 
     if (!q || q.length < 2) return reply.send({ users: [] });
 
-    const { data: users, error } = await supabaseAdmin
+    // Try searching by name OR email (if email column exists). If email is missing, fall back to name-only.
+    const like = `%${q}%`;
+
+    let query = supabaseAdmin
       .from('profiles')
-      .select('id, name, avatar_url, is_online, last_seen')
-      .ilike('name', `%${q}%`)
+      .select('id, name, avatar_url, is_online, last_seen, email')
+      .or(`name.ilike.${like},email.ilike.${like}`)
       .neq('id', myId)
       .limit(10);
 
+    let { data: users, error } = await query;
+
+    if (error && /email/.test(error.message)) {
+      // Column email not present — retry with name-only to avoid breaking
+      const fallback = await supabaseAdmin
+        .from('profiles')
+        .select('id, name, avatar_url, is_online, last_seen')
+        .ilike('name', like)
+        .neq('id', myId)
+        .limit(10);
+      users = fallback.data;
+      error = fallback.error;
+    }
+
     if (error) return reply.code(500).send({ error: error.message });
 
-    return reply.send({ users });
+    return reply.send({ users: users || [] });
   } catch (err) {
     return reply.code(500).send({ error: err.message });
   }

@@ -10,15 +10,23 @@ function DoubleTick({ read }) {
   );
 }
 
-export default function MessageBubble({ message }) {
-  const isMe = message.sender === 'me';
+const formatTime = (ts) => {
+  if (!ts) return '';
+  const date = new Date(ts);
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+
+export default function MessageBubble({ message, currentUserId }) {
+  const senderId = message.sender_id || message.senderId;
+  const isMe = message.sender === 'me' || senderId === currentUserId;
+  const isRead = message.status === 'read';
   return (
     <div className={`message-row ${isMe ? 'me' : 'them'}`}>
       <div className="message-bubble">
-        <p className="message-text">{message.text}</p>
+        <p className="message-text">{message.text || ''}</p>
         <div className="message-meta">
-          <span className="message-time">{message.time}</span>
-          {isMe && <DoubleTick read={message.read} />}
+          <span className="message-time">{formatTime(message.created_at || message.time)}</span>
+          {isMe && <DoubleTick read={isRead} />}
         </div>
       </div>
     </div>

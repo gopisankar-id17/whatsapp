@@ -65,6 +65,7 @@ const messageHandler = (socket, io) => {
   // ── Typing indicator ───────────────────────────────────────
   socket.on('user_typing', ({ conversationId, isTyping }) => {
     socket.to(conversationId).emit('user_typing', {
+      conversationId,
       userId: socket.user.id,
       name: socket.profile?.name,
       isTyping,
@@ -96,6 +97,15 @@ const messageHandler = (socket, io) => {
     } catch (err) {
       console.error('message_read error:', err);
     }
+  });
+
+  // ── Profile updated broadcast ─────────────────────────────
+  socket.on('profile_updated', ({ name, avatar_url }) => {
+    io.emit('profile_updated', {
+      userId: socket.user.id,
+      name,
+      avatar_url,
+    });
   });
 };
 
