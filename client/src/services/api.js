@@ -1,9 +1,15 @@
 import axios from 'axios';
 
+const BASE_URL =
+  process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
+console.log("🔥 API BASE URL:", BASE_URL); // ✅ DEBUG
+
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:3001',
+  baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
-  timeout: 10000,
+  withCredentials: true,   // ✅ IMPORTANT (CORS + cookies)
+  timeout: 30000,          // 🔥 FIX: increase timeout (Render sleep)
 });
 
 // ── Request interceptor: attach token ──────────────────────────
@@ -13,6 +19,8 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    console.log("➡️ Request:", config.baseURL + config.url); // ✅ DEBUG
     return config;
   },
   (error) => Promise.reject(error)
@@ -20,7 +28,7 @@ api.interceptors.request.use(
 
 // ── Response interceptor: handle 401 / token refresh ──────────
 let isRefreshing = false;
-let failedQueue  = [];
+let failedQueue = [];
 
 const processQueue = (error, token = null) => {
   failedQueue.forEach(({ resolve, reject }) => {
@@ -33,11 +41,12 @@ const processQueue = (error, token = null) => {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    console.log("❌ API ERROR:", error.message); // ✅ DEBUG
+
     const originalRequest = error.config;
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
-        // Queue requests while refreshing
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         }).then((token) => {
@@ -52,7 +61,6 @@ api.interceptors.response.use(
       const refreshToken = localStorage.getItem('wa_refresh_token');
 
       if (!refreshToken) {
-        // No refresh token — clear and redirect to login
         localStorage.clear();
         window.location.href = '/login';
         return Promise.reject(error);
@@ -60,16 +68,19 @@ api.interceptors.response.use(
 
       try {
         const { data } = await axios.post(
-          `${process.env.REACT_APP_API_URL || 'http://localhost:3001'}/api/auth/refresh`,
-          { refreshToken }
+          `${BASE_URL}/api/auth/refresh`,
+          { refreshToken },
+          { withCredentials: true } // ✅ IMPORTANT
         );
 
         localStorage.setItem('wa_token', data.token);
         localStorage.setItem('wa_refresh_token', data.refreshToken);
+
         api.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
 
         processQueue(null, data.token);
         originalRequest.headers.Authorization = `Bearer ${data.token}`;
+
         return api(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError, null);
