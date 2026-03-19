@@ -10,7 +10,7 @@ export function SocketProvider({ children }) {
   const { token, isAuthenticated } = useAuth();
   const socketRef                  = useRef(null);
   const [isConnected, setIsConnected] = useState(false);
-  const listenersRef               = useRef({});
+  
 
   useEffect(() => {
     if (!isAuthenticated || !token) {
