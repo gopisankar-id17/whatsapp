@@ -23,6 +23,7 @@ const getConversations = async (request, reply) => {
         *,
         conversation_participants (
           user_id,
+          status,
           profiles (id, name, avatar_url, is_online, last_seen)
         ),
         messages (
@@ -44,6 +45,7 @@ const getConversations = async (request, reply) => {
 };
 
 // POST /api/conversations
+// Creates convo; recipient starts pending (requires status column)
 const createConversation = async (request, reply) => {
   try {
     const { userId } = request.body;
@@ -93,8 +95,8 @@ const createConversation = async (request, reply) => {
     const { error: partErr } = await supabaseAdmin
       .from('conversation_participants')
       .insert([
-        { conversation_id: conversation.id, user_id: myId },
-        { conversation_id: conversation.id, user_id: userId },
+        { conversation_id: conversation.id, user_id: myId, status: 'accepted' },
+        { conversation_id: conversation.id, user_id: userId, status: 'pending' },
       ]);
 
     if (partErr) return reply.code(500).send({ error: partErr.message });
@@ -102,7 +104,7 @@ const createConversation = async (request, reply) => {
     // Return populated conversation
     const { data: populated } = await supabaseAdmin
       .from('conversations')
-      .select(`*, conversation_participants(user_id, profiles(id, name, avatar_url, is_online, last_seen))`)
+      .select(`*, conversation_participants(user_id, status, profiles(id, name, avatar_url, is_online, last_seen))`)
       .eq('id', conversation.id)
       .single();
 
@@ -142,6 +144,19 @@ const sendMessage = async (request, reply) => {
 
     if (!conversationId || (!text && !mediaUrl)) {
       return reply.code(400).send({ error: 'conversationId and text or mediaUrl required' });
+    }
+
+    // Block sending if recipient hasn't accepted
+    const { data: parts } = await supabaseAdmin
+      .from('conversation_participants')
+      .select('user_id, status')
+      .eq('conversation_id', conversationId);
+
+    const recipientPending = (parts || []).some(
+      (p) => `${p.user_id}` !== `${senderId}` && p.status === 'pending'
+    );
+    if (recipientPending) {
+      return reply.code(403).send({ error: 'Recipient has not accepted the invite yet' });
     }
 
     const { data: message, error: msgErr } = await supabaseAdmin
@@ -239,4 +254,79 @@ module.exports = {
   sendMessage,
   searchUsers,
   updateProfile,
+  deleteConversation,
+  acceptInvite,
+  declineInvite,
+};
+
+// DELETE /api/conversations/:id
+const deleteConversation = async (request, reply) => {
+  try {
+    const { id } = request.params;
+    const userId = request.user.id;
+
+    const { error: pErr } = await supabaseAdmin
+      .from('conversation_participants')
+      .select('conversation_id')
+      .eq('conversation_id', id)
+      .eq('user_id', userId)
+      .single();
+    if (pErr) return reply.code(403).send({ error: 'Not allowed' });
+
+    await supabaseAdmin.from('messages').delete().eq('conversation_id', id);
+    await supabaseAdmin.from('conversation_participants').delete().eq('conversation_id', id);
+    await supabaseAdmin.from('conversations').delete().eq('id', id);
+
+    return reply.send({ success: true });
+  } catch (err) {
+    return reply.code(500).send({ error: err.message });
+  }
+};
+
+// POST /api/conversations/:id/accept
+const acceptInvite = async (request, reply) => {
+  try {
+    const { id } = request.params;
+    const userId = request.user.id;
+
+    const { error } = await supabaseAdmin
+      .from('conversation_participants')
+      .update({ status: 'accepted' })
+      .eq('conversation_id', id)
+      .eq('user_id', userId);
+
+    if (error) return reply.code(500).send({ error: error.message });
+
+    return reply.send({ success: true });
+  } catch (err) {
+    return reply.code(500).send({ error: err.message });
+  }
+};
+
+// POST /api/conversations/:id/decline
+const declineInvite = async (request, reply) => {
+  try {
+    const { id } = request.params;
+    const userId = request.user.id;
+
+    await supabaseAdmin
+      .from('conversation_participants')
+      .delete()
+      .eq('conversation_id', id)
+      .eq('user_id', userId);
+
+    const { data: remaining } = await supabaseAdmin
+      .from('conversation_participants')
+      .select('id')
+      .eq('conversation_id', id);
+
+    if (!remaining || remaining.length === 0) {
+      await supabaseAdmin.from('messages').delete().eq('conversation_id', id);
+      await supabaseAdmin.from('conversations').delete().eq('id', id);
+    }
+
+    return reply.send({ success: true });
+  } catch (err) {
+    return reply.code(500).send({ error: err.message });
+  }
 };
