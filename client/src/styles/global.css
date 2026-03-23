@@ -359,6 +359,54 @@ html, body, #root {
   outline-offset: 2px;
 }
 
+.menu-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  z-index: 100;
+  min-width: 160px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.menu-item {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: 14px;
+  color: #dc3545;
+  font-family: inherit;
+}
+
+.menu-item:hover { background: #fff5f5; }
+
+.invite-banner {
+  padding: 10px 16px;
+  background: #fff8e5;
+  border-bottom: 1px solid #f4e0b6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.invite-text {
+  color: #8a6d3b;
+  font-size: 13px;
+}
+
+.invite-actions {
+  display: flex;
+  gap: 8px;
+}
+
 /* ── Messages ── */
 .messages-container {
   flex: 1;

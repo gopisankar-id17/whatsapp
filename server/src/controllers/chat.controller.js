@@ -247,18 +247,6 @@ const updateProfile = async (request, reply) => {
   }
 };
 
-module.exports = {
-  getConversations,
-  createConversation,
-  getMessages,
-  sendMessage,
-  searchUsers,
-  updateProfile,
-  deleteConversation,
-  acceptInvite,
-  declineInvite,
-};
-
 // DELETE /api/conversations/:id
 const deleteConversation = async (request, reply) => {
   try {
@@ -329,4 +317,16 @@ const declineInvite = async (request, reply) => {
   } catch (err) {
     return reply.code(500).send({ error: err.message });
   }
+};
+
+module.exports = {
+  getConversations,
+  createConversation,
+  getMessages,
+  sendMessage,
+  searchUsers,
+  updateProfile,
+  deleteConversation,
+  acceptInvite,
+  declineInvite,
 };
