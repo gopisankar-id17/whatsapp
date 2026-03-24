@@ -4,6 +4,7 @@ const { supabaseAdmin } = require('../config/supabase');
 const messageHandler   = require('./handlers/messageHandler');
 const presenceHandler  = require('./handlers/presenceHandler');
 const callHandler      = require('./handlers/callHandler');
+const reactionHandler  = require('./handlers/reactionHandler');
 
 const initSocket = (io) => {
   // ── Supabase JWT auth middleware ──────────────────────────────────────────
@@ -40,6 +41,7 @@ const initSocket = (io) => {
 
     messageHandler(socket, io);
     callHandler(socket, io);   // ← NEW
+    reactionHandler(socket, io); // ← NEW
 
     socket.on('disconnect', async () => {
       console.log(`Disconnected: ${socket.profile?.name}`);

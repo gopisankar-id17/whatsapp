@@ -51,7 +51,7 @@ export const CallProvider = ({ children }) => {
     const pc = new RTCPeerConnection(ICE_SERVERS);
 
     pc.onicecandidate = (e) => {
-      if (e.candidate) {
+      if (e.candidate && socket) {
         socket.emit("call:ice-candidate", { to: targetUserId, candidate: e.candidate });
       }
     };
@@ -74,7 +74,7 @@ export const CallProvider = ({ children }) => {
 
   // ── Start a call (caller side) ───────────────────────────────────────────
   const startCall = async (targetUser) => {
-    if (callState !== "idle") return;
+    if (callState !== "idle" || !socket) return;
     setCallState("calling");
     setCallWith(targetUser);
 
@@ -95,7 +95,7 @@ export const CallProvider = ({ children }) => {
 
   // ── Accept incoming call (callee side) ───────────────────────────────────
   const acceptCall = async () => {
-    if (!incomingCall) return;
+    if (!incomingCall || !socket) return;
     const { from, offer, callerInfo } = incomingCall;
 
     setCallState("ongoing");
@@ -119,7 +119,7 @@ export const CallProvider = ({ children }) => {
 
   // ── Reject incoming call ─────────────────────────────────────────────────
   const rejectCall = () => {
-    if (!incomingCall) return;
+    if (!incomingCall || !socket) return;
     socket.emit("call:reject", { to: incomingCall.from });
     cleanup();
   };
@@ -127,7 +127,7 @@ export const CallProvider = ({ children }) => {
   // ── End ongoing/outgoing call ────────────────────────────────────────────
   const endCall = () => {
     const targetId = callWith?.id || incomingCall?.from;
-    if (targetId) socket.emit("call:end", { to: targetId });
+    if (targetId && socket) socket.emit("call:end", { to: targetId });
     cleanup();
   };
 

@@ -1,4 +1,5 @@
 const { supabaseAdmin } = require('../../config/supabase');
+const { processLinkPreviews } = require('../../utils/linkPreview');
 
 const messageHandler = (socket, io) => {
   // ── Join conversation room ─────────────────────────────────
@@ -15,7 +16,7 @@ const messageHandler = (socket, io) => {
   // ── Send message ───────────────────────────────────────────
   socket.on('send_message', async (data) => {
     try {
-      const { conversationId, text, mediaUrl, mediaType } = data;
+      const { conversationId, text, mediaUrl, mediaType, repliedToMessageId } = data;
       if (!conversationId || (!text && !mediaUrl)) return;
 
       // Save to Supabase
@@ -27,9 +28,10 @@ const messageHandler = (socket, io) => {
           text: text || '',
           media_url: mediaUrl || '',
           media_type: mediaType || '',
+          replied_to_message_id: repliedToMessageId || null,
           status: 'sent',
         })
-        .select(`*, profiles(id, name, avatar_url)`)
+        .select(`*, profiles(id, name, avatar_url), replied_to_message:replied_to_message_id(id, text, sender_id, media_type, profiles(name))`)
         .single();
 
       if (error) {
@@ -44,6 +46,19 @@ const messageHandler = (socket, io) => {
 
       // Broadcast to room
       io.to(conversationId).emit('receive_message', message);
+
+      // Process link previews asynchronously (non-blocking)
+      if (text) {
+        processLinkPreviews(text, message.id).then((previews) => {
+          if (previews.length > 0) {
+            // Emit updated message with link previews
+            io.to(conversationId).emit('link_previews_added', {
+              messageId: message.id,
+              linkPreviews: previews,
+            });
+          }
+        }).catch((err) => console.error('Error processing link previews:', err));
+      }
 
       // Notify all participants' personal rooms (for sidebar update)
       const { data: participants } = await supabaseAdmin

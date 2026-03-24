@@ -120,6 +120,16 @@ export function SocketProvider({ children }) {
     emit('message_read', { conversationId, messageIds });
   }, [emit]);
 
+  // ── Add reaction to a message ────────────────────────────────
+  const addReaction = useCallback((messageId, conversationId, reaction) => {
+    emit('add_reaction', { messageId, conversationId, reaction });
+  }, [emit]);
+
+  // ── Remove reaction from a message ───────────────────────────
+  const removeReaction = useCallback((messageId, conversationId, reaction) => {
+    emit('remove_reaction', { messageId, conversationId, reaction });
+  }, [emit]);
+
   return (
     <SocketContext.Provider value={{
       socket: socketRef.current,
@@ -133,6 +143,8 @@ export function SocketProvider({ children }) {
       sendMessage,
       sendTyping,
       markRead,
+      addReaction,
+      removeReaction,
     }}>
       {children}
     </SocketContext.Provider>

@@ -14,9 +14,10 @@ import './styles/global.css';
 
 function App() {
   const { isAuthenticated, profile, loading } = useAuth();
-  const { on, off, joinRoom, leaveRoom, sendMessage, sendTyping, markRead, isConnected, socketId } = useSocket();
+  const { on, off, joinRoom, leaveRoom, sendMessage, sendTyping, markRead, addReaction, removeReaction, isConnected, socketId } = useSocket();
 
   const [conversations, setConversations] = useState([]);
+  const [archivedChats, setArchivedChats] = useState([]);
   const [selectedChat,  setSelectedChat]  = useState(null);
   const [messages,      setMessages]      = useState([]);
   const [searchQuery,   setSearchQuery]   = useState('');
@@ -123,12 +124,60 @@ function App() {
       );
     };
 
+    const handleReactionAdded = ({ messageId, userId, userName, reaction }) => {
+      if (selectedChat) {
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (m.id !== messageId) return m;
+            const existing = m.message_reactions || [];
+            return {
+              ...m,
+              message_reactions: [...existing, { message_id: messageId, user_id: userId, reaction, profiles: { name: userName } }],
+            };
+          })
+        );
+      }
+    };
+
+    const handleReactionRemoved = ({ messageId, userId, reaction }) => {
+      if (selectedChat) {
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (m.id !== messageId) return m;
+            return {
+              ...m,
+              message_reactions: (m.message_reactions || []).filter(
+                (r) => !(r.user_id === userId && r.reaction === reaction)
+              ),
+            };
+          })
+        );
+      }
+    };
+
+    const handleLinkPreviewsAdded = ({ messageId, linkPreviews }) => {
+      if (selectedChat) {
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (m.id !== messageId) return m;
+            return {
+              ...m,
+              link_previews: linkPreviews,
+            };
+          })
+        );
+      }
+    };
+
     on('receive_message',        handleMessage);
     on('conversation_updated',   handleConversationUpdated);
     on('user_status',            handleUserStatus);
     on('messages_read',          handleMessagesRead);
     on('user_typing',            handleUserTyping);
     on('profile_updated',        handleProfileUpdated);
+    on('reaction_added',         handleReactionAdded);
+    on('reaction_removed',       handleReactionRemoved);
+    on('link_previews_added',    handleLinkPreviewsAdded);
 
     return () => {
       off('receive_message',       handleMessage);
@@ -137,6 +186,9 @@ function App() {
       off('messages_read',         handleMessagesRead);
       off('user_typing',           handleUserTyping);
       off('profile_updated',       handleProfileUpdated);
+      off('reaction_added',        handleReactionAdded);
+      off('reaction_removed',      handleReactionRemoved);
+      off('link_previews_added',   handleLinkPreviewsAdded);
     };
   }, [isAuthenticated, isConnected, socketId, on, off, selectedChat, profile?.id]);
 
@@ -193,19 +245,22 @@ function App() {
   };
 
   // ── Send a message ──────────────────────────────────────────────────────
-  const handleSendMessage = async (text) => {
-    if (!selectedChat || !text.trim()) return;
+  const handleSendMessage = async (text, mediaUrl = '', mediaType = '') => {
+    if (!selectedChat) return;
+    if (!text?.trim() && !mediaUrl) return;
     const tempId  = `temp-${Date.now()}`;
     const tempMsg = {
       id: tempId,
       sender_id:  profile?.id,
-      text:       text.trim(),
+      text:       text?.trim() || '',
+      media_url:  mediaUrl || '',
+      media_type: mediaType || '',
       created_at: new Date().toISOString(),
       status:     'sending',
     };
     setMessages((prev) => [...prev, tempMsg]);
     try {
-      sendMessage && sendMessage(selectedChat.id, text.trim());
+      sendMessage && sendMessage(selectedChat.id, text?.trim() || '', mediaUrl, mediaType);
     } catch (err) {
       console.error('Failed to send message:', err);
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
@@ -245,13 +300,45 @@ function App() {
 
   const handleDeleteConversation = async (conversationId) => {
     if (!conversationId) return;
-    if (!window.confirm('Delete this chat? This will remove all messages.')) return;
     try {
       await chatService.deleteConversation(conversationId);
       setConversations((prev) => prev.filter((c) => c.id !== conversationId));
       if (selectedChat?.id === conversationId) { setSelectedChat(null); setMessages([]); }
     } catch (err) {
       console.error('Failed to delete conversation:', err);
+    }
+  };
+
+  // ── Archive conversation ───────────────────────────────────────────────────
+  const handleArchiveConversation = (conversationId) => {
+    if (!conversationId) return;
+    const chatToArchive = conversations.find((c) => c.id === conversationId);
+    if (chatToArchive) {
+      setArchivedChats((prev) => [chatToArchive, ...prev]);
+      setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+      if (selectedChat?.id === conversationId) { setSelectedChat(null); setMessages([]); }
+    }
+  };
+
+  // ── Unarchive conversation ─────────────────────────────────────────────────
+  const handleUnarchiveConversation = (conversationId) => {
+    if (!conversationId) return;
+    const chatToUnarchive = archivedChats.find((c) => c.id === conversationId);
+    if (chatToUnarchive) {
+      setConversations((prev) => [chatToUnarchive, ...prev]);
+      setArchivedChats((prev) => prev.filter((c) => c.id !== conversationId));
+    }
+  };
+
+  // ── Clear messages (keep conversation) ─────────────────────────────────────
+  const handleClearMessages = async (conversationId) => {
+    if (!conversationId) return;
+    if (!window.confirm('Clear all messages in this chat? The conversation will remain.')) return;
+    try {
+      // Clear messages locally (backend would need clearMessages endpoint)
+      setMessages([]);
+    } catch (err) {
+      console.error('Failed to clear messages:', err);
     }
   };
 
@@ -292,6 +379,7 @@ function App() {
       <div className="app-container">
         <Sidebar
           conversations={filteredConversations}
+          archivedChats={archivedChats}
           selectedChat={selectedChat}
           onSelectChat={handleSelectChat}
           searchQuery={searchQuery}
@@ -299,6 +387,9 @@ function App() {
           loading={loadingChats}
           currentUserId={profile?.id}
           onStartConversation={handleStartConversation}
+          onArchiveChat={handleArchiveConversation}
+          onUnarchiveChat={handleUnarchiveConversation}
+          onDeleteChat={handleDeleteConversation}
         />
         <main className="chat-area">
           {selectedChat ? (
@@ -313,6 +404,9 @@ function App() {
               onAcceptInvite={handleAcceptInvite}
               onDeclineInvite={handleDeclineInvite}
               onDeleteConversation={handleDeleteConversation}
+              onClearMessages={handleClearMessages}
+              onAddReaction={addReaction}
+              onRemoveReaction={removeReaction}
             />
           ) : (
             <WelcomeScreen />

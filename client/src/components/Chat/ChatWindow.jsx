@@ -16,6 +16,9 @@ export default function ChatWindow({
   onAcceptInvite,
   onDeclineInvite,
   onDeleteConversation,
+  onClearMessages,
+  onAddReaction,
+  onRemoveReaction,
 }) {
   const bottomRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -157,9 +160,21 @@ export default function ChatWindow({
                 <div className="menu-dropdown">
                   <button
                     className="menu-item"
+                    style={{ color: 'var(--wa-text-primary)' }}
                     onClick={() => {
                       setShowMenu(false);
-                      onDeleteConversation?.(conversation.id);
+                      onClearMessages?.(conversation.id);
+                    }}
+                  >
+                    Clear messages
+                  </button>
+                  <button
+                    className="menu-item danger"
+                    onClick={() => {
+                      setShowMenu(false);
+                      if (window.confirm('Delete this chat? This will remove all messages and the conversation.')) {
+                        onDeleteConversation?.(conversation.id);
+                      }
                     }}
                   >
                     Delete chat
@@ -216,7 +231,10 @@ export default function ChatWindow({
                   key={msg.id}
                   message={msg}
                   currentUserId={currentUserId}
+                  conversationId={conversation.id}
                   onContextMenu={(e) => handleContextMenu(e, msg)}
+                  onAddReaction={onAddReaction}
+                  onRemoveReaction={onRemoveReaction}
                 />
               ))
             )}
