@@ -1,4 +1,4 @@
-const { supabaseAdmin } = require('../../config/supabase');
+const { query } = require('../config/database');
 
 // Extract URLs from text using regex
 const extractUrls = (text) => {
@@ -77,19 +77,23 @@ const processLinkPreviews = async (text, messageId) => {
     for (const url of urls) {
       const preview = await fetchLinkPreview(url);
       if (preview) {
-        // Save to database
-        const { error } = await supabaseAdmin
-          .from('link_previews')
-          .upsert({
-            message_id: messageId,
-            url: preview.url,
-            title: preview.title,
-            description: preview.description,
-            image_url: preview.imageUrl,
-            domain: preview.domain,
-          }, { onConflict: 'message_id,url' });
+        // Save to database using PostgreSQL
+        try {
+          await query(`
+            INSERT INTO link_previews (message_id, url, title, description, image_url, domain, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, NOW())
+            ON CONFLICT (message_id, url)
+            DO UPDATE SET
+              title = EXCLUDED.title,
+              description = EXCLUDED.description,
+              image_url = EXCLUDED.image_url,
+              domain = EXCLUDED.domain
+          `, [messageId, preview.url, preview.title, preview.description, preview.imageUrl, preview.domain]);
 
-        if (!error) {
+          previews.push(preview);
+        } catch (dbError) {
+          console.error('Failed to save link preview:', dbError);
+          // Still add to previews for display, even if DB save fails
           previews.push(preview);
         }
       }

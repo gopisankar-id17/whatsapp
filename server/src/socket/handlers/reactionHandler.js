@@ -1,4 +1,4 @@
-const { supabaseAdmin } = require('../../config/supabase');
+const { query } = require('../../config/database');
 
 const reactionHandler = (socket, io) => {
   // ── Add reaction to a message ───────────────────────────────
@@ -7,20 +7,13 @@ const reactionHandler = (socket, io) => {
       const { messageId, conversationId, reaction } = data;
       if (!messageId || !conversationId || !reaction) return;
 
-      const { data: result, error } = await supabaseAdmin
-        .from('message_reactions')
-        .upsert({
-          message_id: messageId,
-          user_id: socket.user.id,
-          reaction,
-        }, { onConflict: 'message_id,user_id,reaction' })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('add_reaction error:', error);
-        return socket.emit('error', { message: 'Failed to add reaction' });
-      }
+      // Upsert reaction using PostgreSQL
+      await query(`
+        INSERT INTO message_reactions (message_id, user_id, reaction, created_at)
+        VALUES ($1, $2, $3, NOW())
+        ON CONFLICT (message_id, user_id, reaction)
+        DO UPDATE SET created_at = NOW()
+      `, [messageId, socket.user.id, reaction]);
 
       // Broadcast to conversation room
       io.to(conversationId).emit('reaction_added', {
@@ -41,17 +34,11 @@ const reactionHandler = (socket, io) => {
       const { messageId, conversationId, reaction } = data;
       if (!messageId || !conversationId || !reaction) return;
 
-      const { error } = await supabaseAdmin
-        .from('message_reactions')
-        .delete()
-        .eq('message_id', messageId)
-        .eq('user_id', socket.user.id)
-        .eq('reaction', reaction);
-
-      if (error) {
-        console.error('remove_reaction error:', error);
-        return socket.emit('error', { message: 'Failed to remove reaction' });
-      }
+      // Delete reaction from PostgreSQL
+      await query(`
+        DELETE FROM message_reactions
+        WHERE message_id = $1 AND user_id = $2 AND reaction = $3
+      `, [messageId, socket.user.id, reaction]);
 
       // Broadcast to conversation room
       io.to(conversationId).emit('reaction_removed', {

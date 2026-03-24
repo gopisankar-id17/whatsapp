@@ -1,4 +1,4 @@
-const { supabaseAdmin } = require('../../config/supabase');
+const { query } = require('../../config/database');
 const { processLinkPreviews } = require('../../utils/linkPreview');
 
 const messageHandler = (socket, io) => {
@@ -25,30 +25,63 @@ const messageHandler = (socket, io) => {
       const { conversationId, text, mediaUrl, mediaType, repliedToMessageId } = data;
       if (!conversationId || (!text && !mediaUrl)) return;
 
-      // Save to Supabase
-      const { data: message, error } = await supabaseAdmin
-        .from('messages')
-        .insert({
-          conversation_id: conversationId,
-          sender_id: socket.user.id,
-          text: text || '',
-          media_url: mediaUrl || '',
-          media_type: mediaType || '',
-          replied_to_message_id: repliedToMessageId || null,
-          status: 'sent',
-        })
-        .select(`*, profiles(id, name, avatar_url), replied_to_message:replied_to_message_id(id, text, sender_id, media_type, profiles(name))`)
-        .single();
+      console.log(`[Socket Server] Saving message to database for conversation ${conversationId}`);
 
-      if (error) {
+      // Save message to PostgreSQL database
+      const messageResult = await query(`
+        INSERT INTO messages (conversation_id, sender_id, text, media_url, media_type, replied_to_message_id, status, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, 'sent', NOW())
+        RETURNING *
+      `, [
+        conversationId,
+        socket.user.id,
+        text || '',
+        mediaUrl || '',
+        mediaType || '',
+        repliedToMessageId || null
+      ]);
+
+      if (messageResult.rows.length === 0) {
         return socket.emit('error', { message: 'Failed to save message' });
       }
 
+      const savedMessage = messageResult.rows[0];
+
+      // Get message with profile information and replied message info
+      const messageWithProfileResult = await query(`
+        SELECT m.*,
+               json_build_object(
+                 'id', p.id,
+                 'name', p.name,
+                 'avatar_url', p.avatar_url
+               ) as profiles,
+               CASE
+                 WHEN m.replied_to_message_id IS NOT NULL THEN
+                   (SELECT json_build_object(
+                     'id', rm.id,
+                     'text', rm.text,
+                     'sender_id', rm.sender_id,
+                     'media_type', rm.media_type,
+                     'profiles', json_build_object('name', rp.name)
+                   )
+                   FROM messages rm
+                   LEFT JOIN profiles rp ON rm.sender_id = rp.id
+                   WHERE rm.id = m.replied_to_message_id)
+                 ELSE NULL
+               END as replied_to_message
+        FROM messages m
+        LEFT JOIN profiles p ON m.sender_id = p.id
+        WHERE m.id = $1
+      `, [savedMessage.id]);
+
+      const message = messageWithProfileResult.rows[0];
+
       // Update conversation timestamp
-      await supabaseAdmin
-        .from('conversations')
-        .update({ last_message_at: new Date().toISOString() })
-        .eq('id', conversationId);
+      await query(`
+        UPDATE conversations
+        SET last_message_at = NOW()
+        WHERE id = $1
+      `, [conversationId]);
 
       // Broadcast to room
       console.log(`[Socket Server] Broadcasting message to room: ${conversationId}`);
@@ -67,16 +100,17 @@ const messageHandler = (socket, io) => {
         }).catch((err) => console.error('Error processing link previews:', err));
       }
 
-      // Notify all participants' personal rooms (for sidebar update)
-      const { data: participants } = await supabaseAdmin
-        .from('conversation_participants')
-        .select('user_id')
-        .eq('conversation_id', conversationId);
+      // Get all participants for this conversation
+      const participantsResult = await query(`
+        SELECT user_id
+        FROM conversation_participants
+        WHERE conversation_id = $1
+      `, [conversationId]);
 
-      if (participants) {
-        // Calculate unread count for each participant (with error handling)
+      if (participantsResult.rows.length > 0) {
+        // Calculate unread count for each participant
         const participantUpdates = await Promise.all(
-          participants.map(async ({ user_id }) => {
+          participantsResult.rows.map(async ({ user_id }) => {
             if (user_id === socket.user.id) {
               // Sender has 0 unread messages
               return { user_id, unreadCount: 0 };
@@ -86,43 +120,43 @@ const messageHandler = (socket, io) => {
 
             try {
               // Get recipient's last read status
-              const { data: readStatus } = await supabaseAdmin
-                .from('conversation_read_status')
-                .select('last_read_message_id')
-                .eq('conversation_id', conversationId)
-                .eq('user_id', user_id)
-                .single();
+              const readStatusResult = await query(`
+                SELECT last_read_message_id
+                FROM conversation_read_status
+                WHERE conversation_id = $1 AND user_id = $2
+              `, [conversationId, user_id]);
 
-              if (readStatus?.last_read_message_id) {
+              if (readStatusResult.rows.length > 0 && readStatusResult.rows[0].last_read_message_id) {
                 // Count messages after last read message
-                const { data: lastReadMsg } = await supabaseAdmin
-                  .from('messages')
-                  .select('created_at')
-                  .eq('id', readStatus.last_read_message_id)
-                  .single();
+                const lastReadMsgResult = await query(`
+                  SELECT created_at
+                  FROM messages
+                  WHERE id = $1
+                `, [readStatusResult.rows[0].last_read_message_id]);
 
-                if (lastReadMsg) {
-                  const { count } = await supabaseAdmin
-                    .from('messages')
-                    .select('id', { count: 'exact' })
-                    .eq('conversation_id', conversationId)
-                    .neq('sender_id', user_id) // Don't count own messages
-                    .gt('created_at', lastReadMsg.created_at);
+                if (lastReadMsgResult.rows.length > 0) {
+                  const unreadResult = await query(`
+                    SELECT COUNT(*) as count
+                    FROM messages
+                    WHERE conversation_id = $1
+                      AND sender_id != $2
+                      AND created_at > $3
+                  `, [conversationId, user_id, lastReadMsgResult.rows[0].created_at]);
 
-                  unreadCount = count || 0;
+                  unreadCount = parseInt(unreadResult.rows[0].count) || 0;
                 }
               } else {
                 // No read status - count all messages from others
-                const { count } = await supabaseAdmin
-                  .from('messages')
-                  .select('id', { count: 'exact' })
-                  .eq('conversation_id', conversationId)
-                  .neq('sender_id', user_id);
+                const unreadResult = await query(`
+                  SELECT COUNT(*) as count
+                  FROM messages
+                  WHERE conversation_id = $1 AND sender_id != $2
+                `, [conversationId, user_id]);
 
-                unreadCount = count || 0;
+                unreadCount = parseInt(unreadResult.rows[0].count) || 0;
               }
             } catch (error) {
-              console.warn('[Socket Server] Unread count calculation failed (table may not exist):', error.message);
+              console.warn('[Socket Server] Unread count calculation failed:', error.message);
               // Fallback: set unread count to 1 for non-senders if table doesn't exist
               unreadCount = 1;
             }
@@ -131,7 +165,7 @@ const messageHandler = (socket, io) => {
           })
         );
 
-        // emit to each participant with their specific unread count
+        // Emit to each participant with their specific unread count
         participantUpdates.forEach(({ user_id, unreadCount }) => {
           console.log(`[Socket Server] Emitting conversation_updated to user ${user_id} with unread count: ${unreadCount}`);
           io.to(user_id).emit('conversation_updated', {
@@ -161,19 +195,21 @@ const messageHandler = (socket, io) => {
   // ── Mark messages as read ──────────────────────────────────
   socket.on('message_read', async ({ conversationId, messageIds }) => {
     try {
-      const reads = messageIds.map(id => ({
-        message_id: id,
-        user_id: socket.user.id,
-      }));
+      // Insert read receipts (using INSERT ... ON CONFLICT for upsert behavior)
+      for (const messageId of messageIds) {
+        await query(`
+          INSERT INTO message_reads (message_id, user_id, read_at)
+          VALUES ($1, $2, NOW())
+          ON CONFLICT (message_id, user_id) DO UPDATE SET read_at = NOW()
+        `, [messageId, socket.user.id]);
+      }
 
-      await supabaseAdmin
-        .from('message_reads')
-        .upsert(reads, { onConflict: 'message_id,user_id' });
-
-      await supabaseAdmin
-        .from('messages')
-        .update({ status: 'read' })
-        .in('id', messageIds);
+      // Update message status to 'read'
+      await query(`
+        UPDATE messages
+        SET status = 'read'
+        WHERE id = ANY($1::int[])
+      `, [messageIds]);
 
       socket.to(conversationId).emit('messages_read', {
         conversationId,

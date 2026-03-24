@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const BASE_URL =
-  process.env.REACT_APP_API_URL || 'http://localhost:3001';
+  process.env.REACT_APP_API_URL || 'http://localhost:3002';
 
 console.log("🔥 API BASE URL:", BASE_URL); // ✅ DEBUG
 

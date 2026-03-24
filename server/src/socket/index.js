@@ -1,29 +1,36 @@
-// server/src/socket/index.js  (FULL UPDATED FILE)
+// server/src/socket/index.js
 
-const { supabaseAdmin } = require('../config/supabase');
+const { verifyToken } = require('../utils/jwt');
+const { query } = require('../config/database');
 const messageHandler   = require('./handlers/messageHandler');
 const presenceHandler  = require('./handlers/presenceHandler');
 const callHandler      = require('./handlers/callHandler');
 const reactionHandler  = require('./handlers/reactionHandler');
 
 const initSocket = (io) => {
-  // ── Supabase JWT auth middleware ──────────────────────────────────────────
+  // ── JWT auth middleware for Socket.IO ──────────────────────────────────────────
   io.use(async (socket, next) => {
     try {
       const token = socket.handshake.auth?.token;
       if (!token) return next(new Error('No token provided'));
 
-      const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
-      if (error || !user) return next(new Error('Invalid token'));
+      // Verify JWT token
+      const tokenResult = verifyToken(token);
+      if (!tokenResult.success) return next(new Error('Invalid token'));
 
-      const { data: profile } = await supabaseAdmin
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+      // Get user from database
+      const userResult = await query(
+        'SELECT id, email, name, avatar_url, about, is_online, last_seen FROM profiles WHERE id = $1',
+        [tokenResult.userId]
+      );
 
-      socket.user    = user;
-      socket.profile = profile;
+      if (userResult.rows.length === 0) {
+        return next(new Error('User not found'));
+      }
+
+      const user = userResult.rows[0];
+      socket.user = user;
+      socket.profile = user;
       next();
     } catch (err) {
       next(new Error('Authentication error'));
@@ -40,8 +47,8 @@ const initSocket = (io) => {
     socket.join(socket.user.id);
 
     messageHandler(socket, io);
-    callHandler(socket, io);   // ← NEW
-    reactionHandler(socket, io); // ← NEW
+    callHandler(socket, io);
+    reactionHandler(socket, io);
 
     socket.on('disconnect', async () => {
       console.log(`Disconnected: ${socket.profile?.name}`);

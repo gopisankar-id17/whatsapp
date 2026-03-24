@@ -2,6 +2,8 @@ require('dotenv').config();
 const fastify = require('fastify')({ logger: true });
 const { Server } = require('socket.io');
 const initSocket = require('./socket');
+const { initializeDatabase, checkConnection } = require('./utils/dbInit');
+const notificationService = require('./services/notificationService');
 
 // Allowed origins: comma-separated CLIENT_URL; optionally allow all when ALLOW_ALL_ORIGINS=true
 const allowedOriginsEnv = (process.env.CLIENT_URL || '')
@@ -36,28 +38,39 @@ fastify.register(require('@fastify/multipart'), {
 // ── Routes ────────────────────────────────────────────────────
 fastify.register(require('./routes/auth.routes'), { prefix: '/api/auth' });
 fastify.register(require('./routes/chat.routes'), { prefix: '/api' });
-fastify.register(require('./routes/upload.routes'), { prefix: '/api/upload' });
+// fastify.register(require('./routes/upload.routes'), { prefix: '/api/upload' }); // Temporarily disabled
 
 // ── Health check ──────────────────────────────────────────────
 fastify.get('/health', async () => ({
   status: 'ok',
   timestamp: new Date(),
   service: 'whatsapp-server',
+  database: 'neon-postgresql',
 }));
 
-fastify.get('/test-supabase', async (request, reply) => {
-  const { supabaseAdmin } = require('./config/supabase');
+// ── Database test endpoint ───────────────────────────────────
+fastify.get('/test-db', async (request, reply) => {
+  const { query } = require('./config/database');
   try {
-    const { data, error } = await supabaseAdmin.from('profiles').select('*').limit(1);
-    return reply.send({ data, error });
+    const result = await query('SELECT NOW() as current_time, COUNT(*) as user_count FROM profiles');
+    return reply.send({
+      success: true,
+      current_time: result.rows[0].current_time,
+      user_count: result.rows[0].user_count
+    });
   } catch (err) {
-    return reply.send({ err: err.message });
+    return reply.code(500).send({ success: false, error: err.message });
   }
 });
 
 // ── Start Server ──────────────────────────────────────────────
 const start = async () => {
   try {
+    // Initialize database
+    console.log('🔄 Initializing database...');
+    await checkConnection();
+    await initializeDatabase();
+
     const PORT = process.env.PORT || 3001;
 
     await fastify.listen({ port: PORT, host: '0.0.0.0' });
@@ -73,7 +86,12 @@ const start = async () => {
 
     initSocket(io);
 
+    // Initialize notification service with Socket.io instance
+    notificationService.init(io);
+
     console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`🌍 CORS allowed origins:`, allowAllOrigins ? 'ALL' : allowedOrigins);
+
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);

@@ -71,7 +71,9 @@ export default function ChatWindow({
   const otherStatus         = other?.status         || 'accepted';
   const invitePendingForMe    = myStatus    === 'pending';
   const invitePendingForOther = otherStatus === 'pending';
-  const inputDisabled = loading || invitePendingForMe || invitePendingForOther;
+  // Only disable input if I have a pending invitation (need to accept first)
+  // Sender can message immediately even if recipient hasn't accepted yet
+  const inputDisabled = loading || invitePendingForMe;
 
   const otherName     = otherProfile?.name       || conversation.name || 'Unknown';
   const otherAvatar   = otherProfile?.avatar_url;

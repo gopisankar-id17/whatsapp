@@ -176,6 +176,87 @@ function App() {
       }
     };
 
+    // ── Conversation invitation events ───────────────────────────────
+    const handleConversationInvitation = ({ conversation, from, message }) => {
+      console.log('[Frontend] Received conversation invitation:', { conversation, from, message });
+
+      // Add the new conversation to the list
+      setConversations((prev) => {
+        const existing = prev.find((c) => c.id === conversation.id);
+        if (existing) return prev;
+        return [conversation, ...prev];
+      });
+
+      // Show notification to user (you can enhance this with a toast/notification system)
+      console.log(`💬 New conversation invitation from ${from.name}: ${message}`);
+    };
+
+    const handleConversationAccepted = ({ conversationId, acceptedBy, message }) => {
+      console.log('[Frontend] Conversation accepted:', { conversationId, acceptedBy, message });
+
+      // Update the conversation status
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === conversationId
+            ? {
+                ...c,
+                conversation_participants: c.conversation_participants?.map((p) =>
+                  p.user_id === acceptedBy.id ? { ...p, status: 'accepted' } : p
+                )
+              }
+            : c
+        )
+      );
+
+      if (selectedChat?.id === conversationId) {
+        setSelectedChat((prev) =>
+          prev ? { 
+            ...prev, 
+            conversation_participants: prev.conversation_participants?.map((p) => 
+              p.user_id === acceptedBy.id ? { ...p, status: 'accepted' } : p
+            ) 
+          } : prev
+        );
+      }
+
+      // Show success notification
+      console.log(`✅ ${acceptedBy.name} accepted your conversation invitation`);
+    };
+
+    const handleConversationDeclined = ({ conversationId, declinedBy, message }) => {
+      console.log('[Frontend] Conversation declined:', { conversationId, declinedBy, message });
+
+      // Remove the conversation from the list since it was declined
+      setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+
+      // Clear selected chat if it was the declined one
+      if (selectedChat?.id === conversationId) {
+        setSelectedChat(null);
+        setMessages([]);
+      }
+
+      // Show notification
+      console.log(`❌ ${declinedBy.name} declined your conversation invitation`);
+    };
+
+    const handleConversationCreatedByMe = ({ conversation, message }) => {
+      console.log('[Frontend] My conversation created:', { conversation, message });
+
+      // Add the conversation to my list immediately (for sender)
+      setConversations((prev) => {
+        const existing = prev.find((c) => c.id === conversation.id);
+        if (existing) return prev;
+        return [conversation, ...prev];
+      });
+
+      // Auto-select the conversation so user can start typing immediately
+      setSelectedChat(conversation);
+      setMessages([]);
+      joinRoom(conversation.id);
+
+      console.log(`✅ ${message}`);
+    };
+
     on('receive_message',        handleMessage);
     on('conversation_updated',   handleConversationUpdated);
     on('user_status',            handleUserStatus);
@@ -185,6 +266,10 @@ function App() {
     on('reaction_added',         handleReactionAdded);
     on('reaction_removed',       handleReactionRemoved);
     on('link_previews_added',    handleLinkPreviewsAdded);
+    on('conversation_invitation', handleConversationInvitation);
+    on('conversation_accepted',  handleConversationAccepted);
+    on('conversation_declined',  handleConversationDeclined);
+    on('conversation_created_by_me', handleConversationCreatedByMe);
 
     return () => {
       off('receive_message',       handleMessage);
@@ -196,6 +281,10 @@ function App() {
       off('reaction_added',        handleReactionAdded);
       off('reaction_removed',      handleReactionRemoved);
       off('link_previews_added',   handleLinkPreviewsAdded);
+      off('conversation_invitation', handleConversationInvitation);
+      off('conversation_accepted',   handleConversationAccepted);
+      off('conversation_declined',   handleConversationDeclined);
+      off('conversation_created_by_me', handleConversationCreatedByMe);
     };
   }, [isAuthenticated, isConnected, socketId, on, off, selectedChat, profile?.id]);
 
@@ -248,13 +337,13 @@ function App() {
     if (!user?.id) return;
     try {
       setLoadingChats(true);
-      const { data } = await chatService.createConversation(user.id);
-      const conv = data.conversation;
-      setConversations((prev) => {
-        const existing = prev.find((c) => c.id === conv.id);
-        return existing ? [conv, ...prev.filter((c) => c.id !== conv.id)] : [conv, ...prev];
-      });
-      await handleSelectChat(conv);
+      // Just call the API - the real-time socket events will handle UI updates
+      await chatService.createConversation(user.id);
+      // The handleConversationCreatedByMe socket event will:
+      // 1. Add conversation to the list
+      // 2. Auto-select the conversation
+      // 3. Join the room
+      console.log(`[Frontend] Invitation sent to ${user.name}`);
     } catch (err) {
       console.error('Failed to start conversation:', err);
     } finally {

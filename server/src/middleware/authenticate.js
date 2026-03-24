@@ -1,39 +1,42 @@
-const { supabaseAdmin } = require('../config/supabase');
+const { verifyToken, extractTokenFromHeader } = require('../utils/jwt');
+const { query } = require('../config/database');
 
 const authenticate = async (request, reply) => {
   try {
+    // Get token from Authorization header
     const authHeader = request.headers.authorization;
+    const token = extractTokenFromHeader(authHeader);
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return reply.code(401).send({ error: 'Missing or invalid authorization header' });
+    if (!token) {
+      return reply.code(401).send({ error: 'No token provided' });
     }
 
-    const token = authHeader.split(' ')[1];
-
-    // Verify JWT with Supabase — returns user if valid
-    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
-
-    if (error || !user) {
-      return reply.code(401).send({ error: 'Invalid or expired token' });
+    // Verify JWT token
+    const tokenResult = verifyToken(token);
+    if (!tokenResult.success) {
+      return reply.code(401).send({ error: 'Invalid token' });
     }
 
-    // Fetch profile from public.profiles table
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
+    // Get user from database
+    const userResult = await query(
+      'SELECT id, email, name, avatar_url, about, is_online, last_seen FROM profiles WHERE id = $1',
+      [tokenResult.userId]
+    );
 
-    if (profileError || !profile) {
-      return reply.code(401).send({ error: 'User profile not found' });
+    if (userResult.rows.length === 0) {
+      return reply.code(401).send({ error: 'User not found' });
     }
 
-    // Attach to request for use in controllers
-    request.user        = user;
-    request.userProfile = profile;
-    request.token       = token;
-  } catch (err) {
-    return reply.code(401).send({ error: 'Authentication failed', message: err.message });
+    // Attach user to request (compatible with existing code)
+    const user = userResult.rows[0];
+    request.user = user;
+    request.userProfile = user;
+    request.profile = user;
+    request.token = token;
+
+  } catch (error) {
+    console.error('Authentication error:', error);
+    return reply.code(500).send({ error: 'Authentication failed' });
   }
 };
 

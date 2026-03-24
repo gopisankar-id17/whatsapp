@@ -35,6 +35,8 @@ export default function Sidebar({
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [selectedUser, setSelectedUser] = useState(null); // For user profile modal
+  const [sendingInvitation, setSendingInvitation] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('whatsapp-theme');
     return saved === 'dark';
@@ -221,7 +223,7 @@ export default function Sidebar({
                 key={u.id}
                 style={resultButton}
                 onClick={() => {
-                  onStartConversation(u);
+                  setSelectedUser(u);
                   onSearchChange('');
                   setSearchResults([]);
                 }}
@@ -399,6 +401,65 @@ export default function Sidebar({
                 }}
               >
                 {savingProfile ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* User Profile Modal (for sending invitations) */}
+      {selectedUser && (
+        <>
+          <div className="modal-backdrop" onClick={() => setSelectedUser(null)} />
+          <div className="modal-card">
+            <div className="modal-header">
+              <h3>User Profile</h3>
+              <button className="icon-btn" style={{ color: '#667781' }} onClick={() => setSelectedUser(null)}>
+                ✕
+              </button>
+            </div>
+
+            <div className="profile-avatar-block" style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <div className="profile-avatar" style={{
+                backgroundImage: selectedUser.avatar_url ? `url(${selectedUser.avatar_url})` : 'none',
+                margin: '0 auto'
+              }}>
+                {!selectedUser.avatar_url && (selectedUser.name?.[0]?.toUpperCase() || 'U')}
+              </div>
+              <h4 style={{ margin: '12px 0 4px', fontSize: '18px', color: '#111b21' }}>
+                {selectedUser.name || 'Unknown User'}
+              </h4>
+              {selectedUser.email && (
+                <p style={{ margin: '0 0 12px', fontSize: '14px', color: '#667781' }}>
+                  {selectedUser.email}
+                </p>
+              )}
+              <p style={{ margin: '0', fontSize: '14px', color: '#667781' }}>
+                {selectedUser.is_online ? '🟢 Online' : `Last seen: ${new Date(selectedUser.last_seen || Date.now()).toLocaleDateString()}`}
+              </p>
+            </div>
+
+            <div className="modal-footer">
+              <button className="outline-btn" onClick={() => setSelectedUser(null)}>
+                Cancel
+              </button>
+              <button
+                className="primary-btn"
+                disabled={sendingInvitation}
+                onClick={async () => {
+                  setSendingInvitation(true);
+                  try {
+                    await onStartConversation(selectedUser);
+                    setSelectedUser(null);
+                  } catch (err) {
+                    console.error('Failed to send invitation:', err);
+                    // You can add error handling here
+                  } finally {
+                    setSendingInvitation(false);
+                  }
+                }}
+              >
+                {sendingInvitation ? 'Sending...' : 'Send Invitation'}
               </button>
             </div>
           </div>
