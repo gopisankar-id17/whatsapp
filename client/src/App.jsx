@@ -14,7 +14,7 @@ import './styles/global.css';
 
 function App() {
   const { isAuthenticated, profile, loading } = useAuth();
-  const { on, off, joinRoom, leaveRoom, sendMessage, sendTyping, markRead } = useSocket();
+  const { on, off, joinRoom, leaveRoom, sendMessage, sendTyping, markRead, isConnected, socketId } = useSocket();
 
   const [conversations, setConversations] = useState([]);
   const [selectedChat,  setSelectedChat]  = useState(null);
@@ -35,11 +35,22 @@ function App() {
     }
   }, [isAuthenticated]);
 
+  // ── Rejoin room when socket reconnects ─────────────────────────────────
+  useEffect(() => {
+    if (isConnected && selectedChat?.id) {
+      console.log('[App] Rejoining room after reconnect:', selectedChat.id);
+      joinRoom(selectedChat.id);
+    }
+  }, [isConnected, selectedChat?.id, joinRoom]);
+
   // ── Socket listeners ────────────────────────────────────────────────────
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !isConnected) return;
+
+    console.log('[App] Registering socket listeners, socketId:', socketId);
 
     const handleMessage = (message) => {
+      console.log('[App] Received message:', message.id);
       setMessages((prev) => {
         if (prev.find((m) => m.id === message.id)) return prev;
         const cleaned = prev.filter(
@@ -124,6 +135,7 @@ function App() {
     on('profile_updated',        handleProfileUpdated);
 
     return () => {
+      console.log('[App] Cleaning up socket listeners');
       off('receive_message',       handleMessage);
       off('conversation_updated',  handleConversationUpdated);
       off('user_status',           handleUserStatus);
@@ -131,7 +143,7 @@ function App() {
       off('user_typing',           handleUserTyping);
       off('profile_updated',       handleProfileUpdated);
     };
-  }, [isAuthenticated, on, off, selectedChat, profile?.id]);
+  }, [isAuthenticated, isConnected, socketId, on, off, selectedChat, profile?.id]);
 
   // ── Fetch conversations ─────────────────────────────────────────────────
   const fetchConversations = async () => {

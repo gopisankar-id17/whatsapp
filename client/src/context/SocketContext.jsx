@@ -11,7 +11,8 @@ export function SocketProvider({ children }) {
   const socketRef                  = useRef(null);
   const joinedRoomsRef             = useRef(new Set());
   const [isConnected, setIsConnected] = useState(false);
-  
+  const [socketId, setSocketId] = useState(0); // Track socket instance changes
+
 
   useEffect(() => {
     if (!isAuthenticated || !token) {
@@ -20,44 +21,49 @@ export function SocketProvider({ children }) {
         socketRef.current.disconnect();
         socketRef.current = null;
         setIsConnected(false);
+        setSocketId(0);
       }
       return;
     }
 
     // Connect with Supabase token
-    socketRef.current = io(SOCKET_URL, {
+    const socket = io(SOCKET_URL, {
       auth: { token },
       transports: ['websocket'],
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 10,
       reconnectionDelay: 1000,
     });
 
-    socketRef.current.on('connect', () => {
-      console.log('Socket connected:', socketRef.current.id);
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      console.log('Socket connected:', socket.id);
       setIsConnected(true);
+      setSocketId(prev => prev + 1); // Trigger re-registration of listeners
       // Re-join any rooms we had joined before a disconnect
       try {
         joinedRoomsRef.current.forEach((roomId) => {
-          socketRef.current.emit('join_room', roomId);
+          socket.emit('join_room', roomId);
+          console.log(`[Socket] Re-joined room: ${roomId}`);
         });
       } catch (err) {
         console.error('Failed to rejoin rooms on connect:', err);
       }
     });
 
-    socketRef.current.on('disconnect', (reason) => {
+    socket.on('disconnect', (reason) => {
       console.log('Socket disconnected:', reason);
       setIsConnected(false);
     });
 
-    socketRef.current.on('connect_error', (err) => {
+    socket.on('connect_error', (err) => {
       console.error('Socket connection error:', err.message);
       setIsConnected(false);
     });
 
     return () => {
-      socketRef.current?.disconnect();
+      socket.disconnect();
       socketRef.current = null;
     };
   }, [token, isAuthenticated]);
@@ -66,34 +72,47 @@ export function SocketProvider({ children }) {
   const emit = useCallback((event, data) => {
     if (socketRef.current?.connected) {
       socketRef.current.emit(event, data);
+    } else {
+      console.warn(`[Socket] Not connected, cannot emit: ${event}`);
     }
   }, []);
 
   // ── Listen to an event ─────────────────────────────────────
+  // Include socketId in dependency to trigger re-registration when socket reconnects
   const on = useCallback((event, callback) => {
-    socketRef.current?.on(event, callback);
-  }, []);
+    const socket = socketRef.current;
+    if (socket) {
+      socket.on(event, callback);
+    }
+  }, [socketId]);
 
   // ── Remove listener ────────────────────────────────────────
   const off = useCallback((event, callback) => {
-    socketRef.current?.off(event, callback);
-  }, []);
+    const socket = socketRef.current;
+    if (socket) {
+      socket.off(event, callback);
+    }
+  }, [socketId]);
 
   // ── Join a conversation room ───────────────────────────────
   const joinRoom = useCallback((conversationId) => {
     if (!conversationId) return;
     console.log(`[Socket] Joining room: ${conversationId}`);
     joinedRoomsRef.current.add(conversationId);
-    emit('join_room', conversationId);
-  }, [emit]);
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('join_room', conversationId);
+    }
+  }, []);
 
   // ── Leave a conversation room ──────────────────────────────
   const leaveRoom = useCallback((conversationId) => {
     if (!conversationId) return;
     console.log(`[Socket] Leaving room: ${conversationId}`);
     joinedRoomsRef.current.delete(conversationId);
-    emit('leave_room', conversationId);
-  }, [emit]);
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('leave_room', conversationId);
+    }
+  }, []);
 
   // ── Send a message via socket ──────────────────────────────
   const sendMessage = useCallback((conversationId, text, mediaUrl = '', mediaType = '') => {
@@ -114,6 +133,7 @@ export function SocketProvider({ children }) {
     <SocketContext.Provider value={{
       socket: socketRef.current,
       isConnected,
+      socketId, // Expose this so components can re-register listeners
       emit,
       on,
       off,
