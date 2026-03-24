@@ -9,6 +9,7 @@ const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'http://localhost:3001';
 export function SocketProvider({ children }) {
   const { token, isAuthenticated } = useAuth();
   const socketRef                  = useRef(null);
+  const joinedRoomsRef             = useRef(new Set());
   const [isConnected, setIsConnected] = useState(false);
   
 
@@ -35,6 +36,14 @@ export function SocketProvider({ children }) {
     socketRef.current.on('connect', () => {
       console.log('Socket connected:', socketRef.current.id);
       setIsConnected(true);
+      // Re-join any rooms we had joined before a disconnect
+      try {
+        joinedRoomsRef.current.forEach((roomId) => {
+          socketRef.current.emit('join_room', roomId);
+        });
+      } catch (err) {
+        console.error('Failed to rejoin rooms on connect:', err);
+      }
     });
 
     socketRef.current.on('disconnect', (reason) => {
@@ -72,11 +81,17 @@ export function SocketProvider({ children }) {
 
   // ── Join a conversation room ───────────────────────────────
   const joinRoom = useCallback((conversationId) => {
+    if (!conversationId) return;
+    console.log(`[Socket] Joining room: ${conversationId}`);
+    joinedRoomsRef.current.add(conversationId);
     emit('join_room', conversationId);
   }, [emit]);
 
   // ── Leave a conversation room ──────────────────────────────
   const leaveRoom = useCallback((conversationId) => {
+    if (!conversationId) return;
+    console.log(`[Socket] Leaving room: ${conversationId}`);
+    joinedRoomsRef.current.delete(conversationId);
     emit('leave_room', conversationId);
   }, [emit]);
 

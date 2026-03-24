@@ -3,10 +3,12 @@ const { supabaseAdmin } = require('../../config/supabase');
 const messageHandler = (socket, io) => {
   // ── Join conversation room ─────────────────────────────────
   socket.on('join_room', (conversationId) => {
+    console.log(`[Socket Server] User ${socket.profile?.name} (${socket.id}) joining room: ${conversationId}`);
     socket.join(conversationId);
   });
 
   socket.on('leave_room', (conversationId) => {
+    console.log(`[Socket Server] User ${socket.profile?.name} (${socket.id}) leaving room: ${conversationId}`);
     socket.leave(conversationId);
   });
 
