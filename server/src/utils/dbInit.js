@@ -14,10 +14,27 @@ const initializeDatabase = async () => {
     // Execute the schema (ignore errors for existing objects)
     try {
       await query(schema);
+      
+      // Migration: Ensure 'about' column exists
+      try {
+        await query('ALTER TABLE profiles ADD COLUMN IF NOT EXISTS about TEXT DEFAULT \'Hey there! I am using WhatsApp.\'');
+        console.log('✅ Checked/Added "about" column to profiles');
+      } catch (err) {
+        console.warn('⚠️ Error adding "about" column:', err.message);
+      }
+
+      // Migration: Ensure 'avatar_url' column exists
+      try {
+        await query('ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT');
+        console.log('✅ Checked/Added "avatar_url" column to profiles');
+      } catch (err) {
+        console.warn('⚠️ Error adding "avatar_url" column:', err.message);
+      }
+
     } catch (error) {
       // Ignore errors about objects that already exist
       if (error.message.includes('already exists') || error.code === '42710') {
-        console.log('⚠️  Some database objects already exist - continuing...');
+        console.log('⚠️ Some database objects already exist - continuing...');
       } else {
         throw error;
       }

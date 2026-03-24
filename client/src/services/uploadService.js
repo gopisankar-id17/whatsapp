@@ -1,44 +1,33 @@
-import api from './api';
-
 export const uploadService = {
-  // Upload image, video, or audio
-  uploadMedia: async (file, onProgress) => {
-    const formData = new FormData();
-    formData.append('file', file);
+  /**
+   * Convert an image file to a base64 data URL on the client.
+   * No server upload needed — the data URL is saved directly as avatar_url.
+   * onProgress is called with 0 → 100 to keep the UI happy.
+   */
+  uploadMedia: (file, onProgress) =>
+    new Promise((resolve, reject) => {
+      onProgress?.(10);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        onProgress?.(100);
+        resolve({ url: e.target.result, mediaType: 'image' });
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    }),
 
-    const { data } = await api.post('/api/upload/media', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-      onUploadProgress: (progressEvent) => {
-        if (onProgress) {
-          const percent = Math.round(
-            (progressEvent.loaded * 100) / progressEvent.total
-          );
-          onProgress(percent);
-        }
-      },
-    });
-
-    return data; // { url, path, mediaType, bucket }
-  },
-
-  // Delete uploaded file
-  deleteMedia: (bucket, path) =>
-    api.delete('/api/upload/media', { data: { bucket, path } }),
-
-  // Validate file before uploading
+  // Validate file before uploading (images only for avatars)
   validateFile: (file) => {
     const allowedTypes = [
       'image/jpeg', 'image/png', 'image/webp', 'image/gif',
-      'video/mp4', 'video/webm',
-      'audio/mpeg', 'audio/ogg',
     ];
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = 5 * 1024 * 1024; // 5 MB — base64 adds ~33% overhead
 
     if (!allowedTypes.includes(file.type)) {
-      return { valid: false, error: 'File type not supported' };
+      return { valid: false, error: 'Only JPEG, PNG, WebP or GIF images are allowed' };
     }
     if (file.size > maxSize) {
-      return { valid: false, error: 'File must be under 10MB' };
+      return { valid: false, error: 'Image must be under 5 MB' };
     }
     return { valid: true };
   },

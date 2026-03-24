@@ -1,5 +1,8 @@
 require('dotenv').config();
-const fastify = require('fastify')({ logger: true });
+const fastify = require('fastify')({
+  logger: true,
+  bodyLimit: 10 * 1024 * 1024, // 10MB to handle Base64 avatars
+});
 const { Server } = require('socket.io');
 const initSocket = require('./socket');
 const { initializeDatabase, checkConnection } = require('./utils/dbInit');
