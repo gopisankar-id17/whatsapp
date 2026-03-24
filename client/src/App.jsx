@@ -38,7 +38,6 @@ function App() {
   // ── Rejoin room when socket reconnects ─────────────────────────────────
   useEffect(() => {
     if (isConnected && selectedChat?.id) {
-      console.log('[App] Rejoining room after reconnect:', selectedChat.id);
       joinRoom(selectedChat.id);
     }
   }, [isConnected, selectedChat?.id, joinRoom]);
@@ -47,10 +46,7 @@ function App() {
   useEffect(() => {
     if (!isAuthenticated || !isConnected) return;
 
-    console.log('[App] Registering socket listeners, socketId:', socketId);
-
     const handleMessage = (message) => {
-      console.log('[App] Received message:', message.id);
       setMessages((prev) => {
         if (prev.find((m) => m.id === message.id)) return prev;
         const cleaned = prev.filter(
@@ -135,7 +131,6 @@ function App() {
     on('profile_updated',        handleProfileUpdated);
 
     return () => {
-      console.log('[App] Cleaning up socket listeners');
       off('receive_message',       handleMessage);
       off('conversation_updated',  handleConversationUpdated);
       off('user_status',           handleUserStatus);

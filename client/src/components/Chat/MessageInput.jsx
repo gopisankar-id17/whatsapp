@@ -1,9 +1,29 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import EmojiPicker from 'emoji-picker-react';
 
 export default function MessageInput({ onSend, onTyping, disabled = false }) {
   const [text, setText] = useState('');
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const textareaRef = useRef(null);
   const typingTimer = useRef(null);
+  const emojiPickerRef = useRef(null);
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target)) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    if (showEmojiPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showEmojiPicker]);
 
   const handleSend = () => {
     if (disabled) return;
@@ -11,6 +31,7 @@ export default function MessageInput({ onSend, onTyping, disabled = false }) {
     onSend(text.trim());
     setText('');
     onTyping?.(false);
+    setShowEmojiPicker(false);
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
@@ -43,11 +64,52 @@ export default function MessageInput({ onSend, onTyping, disabled = false }) {
     if (typingTimer.current) clearTimeout(typingTimer.current);
   };
 
+  const handleEmojiClick = (emojiData) => {
+    setText((prev) => prev + emojiData.emoji);
+    textareaRef.current?.focus();
+  };
+
+  const toggleEmojiPicker = () => {
+    if (disabled) return;
+    setShowEmojiPicker((prev) => !prev);
+  };
+
   return (
     <div className={`message-input-area${disabled ? ' disabled' : ''}`}>
+      {/* Emoji Picker */}
+      {showEmojiPicker && (
+        <div
+          ref={emojiPickerRef}
+          style={{
+            position: 'absolute',
+            bottom: '100%',
+            left: '16px',
+            marginBottom: '10px',
+            zIndex: 100,
+          }}
+        >
+          <EmojiPicker
+            onEmojiClick={handleEmojiClick}
+            width={350}
+            height={400}
+            searchPlaceHolder="Search emoji"
+            skinTonesDisabled
+            previewConfig={{ showPreview: false }}
+            theme="light"
+          />
+        </div>
+      )}
+
       <div className="input-box-wrapper">
         {/* Emoji */}
-        <button className="input-action-btn" title="Emoji" disabled={disabled}>
+        <button
+          type="button"
+          className={`input-action-btn ${showEmojiPicker ? 'active' : ''}`}
+          title="Emoji"
+          disabled={disabled}
+          onClick={toggleEmojiPicker}
+          style={showEmojiPicker ? { color: '#00a884' } : {}}
+        >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>
           </svg>

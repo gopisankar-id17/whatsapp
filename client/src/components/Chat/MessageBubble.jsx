@@ -16,12 +16,12 @@ const formatTime = (ts) => {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
-export default function MessageBubble({ message, currentUserId }) {
+export default function MessageBubble({ message, currentUserId, onContextMenu }) {
   const senderId = message.sender_id || message.senderId;
   const isMe = message.sender === 'me' || senderId === currentUserId;
   const isRead = message.status === 'read';
   return (
-    <div className={`message-row ${isMe ? 'me' : 'them'}`}>
+    <div className={`message-row ${isMe ? 'me' : 'them'}`} onContextMenu={onContextMenu}>
       <div className="message-bubble">
         <span className="message-text">{message.text || ''}</span>
         <span className="message-meta">

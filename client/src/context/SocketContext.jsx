@@ -42,14 +42,9 @@ export function SocketProvider({ children }) {
       setIsConnected(true);
       setSocketId(prev => prev + 1); // Trigger re-registration of listeners
       // Re-join any rooms we had joined before a disconnect
-      try {
-        joinedRoomsRef.current.forEach((roomId) => {
-          socket.emit('join_room', roomId);
-          console.log(`[Socket] Re-joined room: ${roomId}`);
-        });
-      } catch (err) {
-        console.error('Failed to rejoin rooms on connect:', err);
-      }
+      joinedRoomsRef.current.forEach((roomId) => {
+        socket.emit('join_room', roomId);
+      });
     });
 
     socket.on('disconnect', (reason) => {
@@ -72,8 +67,6 @@ export function SocketProvider({ children }) {
   const emit = useCallback((event, data) => {
     if (socketRef.current?.connected) {
       socketRef.current.emit(event, data);
-    } else {
-      console.warn(`[Socket] Not connected, cannot emit: ${event}`);
     }
   }, []);
 
@@ -97,7 +90,6 @@ export function SocketProvider({ children }) {
   // ── Join a conversation room ───────────────────────────────
   const joinRoom = useCallback((conversationId) => {
     if (!conversationId) return;
-    console.log(`[Socket] Joining room: ${conversationId}`);
     joinedRoomsRef.current.add(conversationId);
     if (socketRef.current?.connected) {
       socketRef.current.emit('join_room', conversationId);
@@ -107,7 +99,6 @@ export function SocketProvider({ children }) {
   // ── Leave a conversation room ──────────────────────────────
   const leaveRoom = useCallback((conversationId) => {
     if (!conversationId) return;
-    console.log(`[Socket] Leaving room: ${conversationId}`);
     joinedRoomsRef.current.delete(conversationId);
     if (socketRef.current?.connected) {
       socketRef.current.emit('leave_room', conversationId);
