@@ -10,11 +10,32 @@ export default function SearchBar({ value, onChange }) {
         <input
           type="text"
           className="search-input"
-          placeholder="Search or start new chat"
+          placeholder="Search"
           value={value}
           onChange={e => onChange(e.target.value)}
         />
       </div>
+      {/* Filter button */}
+      <button
+        type="button"
+        style={{
+          background: 'none',
+          border: 'none',
+          padding: 8,
+          cursor: 'pointer',
+          color: '#54656f',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: '50%',
+          flexShrink: 0,
+        }}
+        title="Unread chats filter"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/>
+        </svg>
+      </button>
     </div>
   );
 }

@@ -72,24 +72,60 @@ export default function Sidebar({
     <aside className="sidebar">
       {/* Header */}
       <div className="sidebar-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {/* Current user avatar */}
+        {/* Current user avatar */}
+        <button
+          type="button"
+          style={{
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            cursor: 'pointer',
+            borderRadius: '50%',
+          }}
+          onClick={() => setShowProfile(true)}
+          aria-label="Open profile"
+        >
           <div style={{
             width: 40, height: 40, borderRadius: '50%',
-            background: profile?.avatar_url ? `url(${profile.avatar_url}) center/cover` : 'rgba(255,255,255,0.3)',
+            background: profile?.avatar_url ? `url(${profile.avatar_url}) center/cover` : '#dfe5e7',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 14, fontWeight: 600, color: '#fff', flexShrink: 0,
+            fontSize: 16, fontWeight: 500, color: '#fff', flexShrink: 0,
             overflow: 'hidden',
           }}>
             {!profile?.avatar_url && (profile?.name?.charAt(0).toUpperCase() || 'U')}
           </div>
-          <span className="sidebar-header-title">WhatsApp</span>
-        </div>
+        </button>
 
         <div className="sidebar-header-actions">
+          {/* Communities icon */}
+          <button className="icon-btn" title="Communities">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+          </button>
+
+          {/* Status icon */}
+          <button className="icon-btn" title="Status">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="4 2"/>
+            </svg>
+          </button>
+
+          {/* Channels icon */}
+          <button className="icon-btn" title="Channels">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 11a9 9 0 0 1 9 9"/>
+              <path d="M4 4a16 16 0 0 1 16 16"/>
+              <circle cx="5" cy="19" r="1" fill="currentColor"/>
+            </svg>
+          </button>
+
           {/* New chat icon */}
           <button className="icon-btn" title="New chat">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
             </svg>
           </button>
@@ -121,20 +157,30 @@ export default function Sidebar({
                   top: '100%',
                   right: 0,
                   background: '#fff',
-                  borderRadius: 8,
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+                  borderRadius: 3,
+                  boxShadow: '0 2px 5px 0 rgba(11,20,26,.26), 0 2px 10px 0 rgba(11,20,26,.16)',
                   zIndex: 100,
-                  minWidth: 160,
+                  minWidth: 200,
                   overflow: 'hidden',
                   marginTop: 4,
+                  paddingTop: 8,
+                  paddingBottom: 8,
                 }}>
                   <button
-                    onClick={() => { setShowMenu(false); setShowProfile(true); }}
+                    onClick={() => { setShowMenu(false); }}
                     style={menuItemStyle}
                     onMouseEnter={e => e.target.style.background = '#f5f6f6'}
                     onMouseLeave={e => e.target.style.background = 'transparent'}
                   >
-                    Profile
+                    New group
+                  </button>
+                  <button
+                    onClick={() => { setShowMenu(false); }}
+                    style={menuItemStyle}
+                    onMouseEnter={e => e.target.style.background = '#f5f6f6'}
+                    onMouseLeave={e => e.target.style.background = 'transparent'}
+                  >
+                    Starred messages
                   </button>
                   <button
                     onClick={() => { setShowMenu(false); }}
@@ -144,11 +190,18 @@ export default function Sidebar({
                   >
                     Settings
                   </button>
-                  <div style={{ borderTop: '1px solid #e9edef' }} />
+                  <button
+                    onClick={() => { setShowMenu(false); setShowProfile(true); }}
+                    style={menuItemStyle}
+                    onMouseEnter={e => e.target.style.background = '#f5f6f6'}
+                    onMouseLeave={e => e.target.style.background = 'transparent'}
+                  >
+                    Profile
+                  </button>
                   <button
                     onClick={() => { setShowMenu(false); handleLogout(); }}
-                    style={{ ...menuItemStyle, color: '#dc3545' }}
-                    onMouseEnter={e => e.target.style.background = '#fff5f5'}
+                    style={menuItemStyle}
+                    onMouseEnter={e => e.target.style.background = '#f5f6f6'}
                     onMouseLeave={e => e.target.style.background = 'transparent'}
                   >
                     Log out
@@ -158,17 +211,6 @@ export default function Sidebar({
             )}
           </div>
         </div>
-      </div>
-
-      {/* User info bar */}
-      <div style={{
-        padding: '8px 16px',
-        background: '#f0f2f5',
-        borderBottom: '1px solid #e9edef',
-        fontSize: 13,
-        color: '#667781',
-      }}>
-        Signed in as <strong style={{ color: '#111b21' }}>{profile?.name || 'User'}</strong>
       </div>
 
       <SearchBar value={searchQuery} onChange={onSearchChange} />

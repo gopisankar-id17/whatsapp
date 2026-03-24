@@ -1,74 +1,46 @@
-import React, { useState, useRef } from 'react';
+import React from 'react';
 
-export default function MessageInput({ onSend }) {
-  const [text, setText] = useState('');
-  const textareaRef = useRef(null);
-
-  const handleSend = () => {
-    if (!text.trim()) return;
-    onSend(text.trim());
-    setText('');
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-    }
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
-  const handleInput = (e) => {
-    setText(e.target.value);
-    const ta = textareaRef.current;
-    if (ta) {
-      ta.style.height = 'auto';
-      ta.style.height = Math.min(ta.scrollHeight, 100) + 'px';
-    }
-  };
-
+export default function WelcomeScreen() {
   return (
-    <div className="message-input-area">
-      <div className="input-box-wrapper">
-        {/* Emoji */}
-        <button className="input-action-btn" title="Emoji">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>
-          </svg>
-        </button>
-        <textarea
-          ref={textareaRef}
-          className="message-textarea"
-          placeholder="Type a message"
-          rows={1}
-          value={text}
-          onChange={handleInput}
-          onKeyDown={handleKeyDown}
-        />
-        {/* Attach */}
-        <button className="input-action-btn" title="Attach">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-          </svg>
-        </button>
-      </div>
+    <div className="welcome-screen">
+      <div className="welcome-logo" aria-hidden="true" />
 
-      {text.trim() ? (
-        <button className="send-btn" onClick={handleSend} title="Send">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-          </svg>
-        </button>
-      ) : (
-        <button className="send-btn" title="Voice message">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2H3v2a9 9 0 0 0 8 8.94V23h2v-2.06A9 9 0 0 0 21 12v-2h-2z"/>
-          </svg>
-        </button>
-      )}
+      <h1 className="welcome-title">Download WhatsApp for Windows</h1>
+
+      <p className="welcome-subtitle">
+        Make calls, share your screen and get a faster experience when you download
+        the Windows app.
+      </p>
+
+      <button
+        style={{
+          background: '#008069',
+          color: '#fff',
+          border: 'none',
+          borderRadius: '24px',
+          padding: '10px 24px',
+          fontSize: '14px',
+          fontWeight: 500,
+          cursor: 'pointer',
+          marginTop: '8px',
+        }}
+      >
+        Get from Microsoft Store
+      </button>
+
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px',
+        color: 'rgba(0,0,0,0.45)',
+        fontSize: '14px',
+        marginTop: '50px',
+      }}>
+        <svg width="16" height="16" viewBox="0 0 18 18" fill="currentColor">
+          <path d="M15 9H13V6H10V9H8V6H5V9H3V6C3 4.34 4.34 3 6 3H12C13.66 3 15 4.34 15 6V9ZM15 12V15C15 16.66 13.66 18 12 18H6C4.34 18 3 16.66 3 15V12H5V15H8V12H10V15H13V12H15Z"/>
+        </svg>
+        <span>Your personal messages are end-to-end encrypted</span>
+      </div>
     </div>
   );
 }

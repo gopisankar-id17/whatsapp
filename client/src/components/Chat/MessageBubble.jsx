@@ -23,11 +23,11 @@ export default function MessageBubble({ message, currentUserId }) {
   return (
     <div className={`message-row ${isMe ? 'me' : 'them'}`}>
       <div className="message-bubble">
-        <p className="message-text">{message.text || ''}</p>
-        <div className="message-meta">
+        <span className="message-text">{message.text || ''}</span>
+        <span className="message-meta">
           <span className="message-time">{formatTime(message.created_at || message.time)}</span>
           {isMe && <DoubleTick read={isRead} />}
-        </div>
+        </span>
       </div>
     </div>
   );
