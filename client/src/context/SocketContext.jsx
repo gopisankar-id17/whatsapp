@@ -38,13 +38,18 @@ export function SocketProvider({ children }) {
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      console.log('Socket connected:', socket.id);
+      console.log('[Frontend] Socket connected:', socket.id);
       setIsConnected(true);
       setSocketId(prev => prev + 1); // Trigger re-registration of listeners
       // Re-join any rooms we had joined before a disconnect
       joinedRoomsRef.current.forEach((roomId) => {
+        console.log('[Frontend] Re-joining room:', roomId);
         socket.emit('join_room', roomId);
       });
+    });
+
+    socket.on('pong', (data) => {
+      console.log('[Frontend] Pong received from server:', data);
     });
 
     socket.on('disconnect', (reason) => {
@@ -90,6 +95,7 @@ export function SocketProvider({ children }) {
   // ── Join a conversation room ───────────────────────────────
   const joinRoom = useCallback((conversationId) => {
     if (!conversationId) return;
+    console.log('[Frontend] Joining room:', conversationId);
     joinedRoomsRef.current.add(conversationId);
     if (socketRef.current?.connected) {
       socketRef.current.emit('join_room', conversationId);
@@ -105,8 +111,15 @@ export function SocketProvider({ children }) {
     }
   }, []);
 
+  // ── Test ping ──────────────────────────────────────────────
+  const ping = useCallback(() => {
+    console.log('[Frontend] Sending ping to server');
+    emit('ping', { message: 'Hello from client!', timestamp: new Date().toISOString() });
+  }, [emit]);
+
   // ── Send a message via socket ──────────────────────────────
   const sendMessage = useCallback((conversationId, text, mediaUrl = '', mediaType = '') => {
+    console.log('[Frontend] Sending message to:', conversationId, { text, mediaUrl, mediaType });
     emit('send_message', { conversationId, text, mediaUrl, mediaType });
   }, [emit]);
 
@@ -145,6 +158,7 @@ export function SocketProvider({ children }) {
       markRead,
       addReaction,
       removeReaction,
+      ping, // Add ping test function
     }}>
       {children}
     </SocketContext.Provider>

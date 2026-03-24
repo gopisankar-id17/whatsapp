@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
 
-export default function LeftNavBar({ activeTab, onTabChange, onProfileClick }) {
+export default function LeftNavBar({ activeTab, onTabChange, onProfileClick, totalUnreadCount = 0 }) {
   const { profile } = useAuth();
 
   const tabs = [
@@ -13,7 +13,7 @@ export default function LeftNavBar({ activeTab, onTabChange, onProfileClick }) {
         </svg>
       ),
       label: 'Chats',
-      badge: 5,
+      badge: totalUnreadCount > 0 ? totalUnreadCount : null,
     },
     {
       id: 'calls',

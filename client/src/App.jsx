@@ -14,7 +14,7 @@ import './styles/global.css';
 
 function App() {
   const { isAuthenticated, profile, loading } = useAuth();
-  const { on, off, joinRoom, leaveRoom, sendMessage, sendTyping, markRead, addReaction, removeReaction, isConnected, socketId } = useSocket();
+  const { on, off, joinRoom, leaveRoom, sendMessage, sendTyping, markRead, addReaction, removeReaction, isConnected, socketId, ping } = useSocket();
 
   const [conversations, setConversations] = useState([]);
   const [archivedChats, setArchivedChats] = useState([]);
@@ -48,6 +48,7 @@ function App() {
     if (!isAuthenticated || !isConnected) return;
 
     const handleMessage = (message) => {
+      console.log('[Frontend] Received message:', message);
       setMessages((prev) => {
         if (prev.find((m) => m.id === message.id)) return prev;
         const cleaned = prev.filter(
@@ -71,11 +72,17 @@ function App() {
       }
     };
 
-    const handleConversationUpdated = ({ conversationId, lastMessage, lastMessageAt }) => {
+    const handleConversationUpdated = ({ conversationId, lastMessage, lastMessageAt, unreadCount }) => {
+      console.log('[Frontend] Conversation updated:', { conversationId, lastMessage, unreadCount });
       setConversations((prev) =>
         prev.map((c) =>
           c.id === conversationId
-            ? { ...c, last_message_at: lastMessageAt, messages: [lastMessage] }
+            ? {
+                ...c,
+                last_message_at: lastMessageAt,
+                messages: [lastMessage],
+                unread_count: unreadCount !== undefined ? unreadCount : c.unread_count
+              }
             : c
         )
       );
@@ -214,6 +221,17 @@ function App() {
     setMessages([]);
     setTypingUser(null);
     joinRoom(conv.id);
+
+    // Mark conversation as read and reset unread count
+    try {
+      await chatService.markConversationAsRead(conv.id);
+      setConversations((prev) =>
+        prev.map((c) => c.id === conv.id ? { ...c, unread_count: 0 } : c)
+      );
+    } catch (err) {
+      console.error('Failed to mark conversation as read:', err);
+    }
+
     try {
       setLoadingMsgs(true);
       const { data } = await chatService.getMessages(conv.id);

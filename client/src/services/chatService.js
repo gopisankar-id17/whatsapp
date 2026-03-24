@@ -11,6 +11,9 @@ export const chatService = {
   deleteConversation: (conversationId) =>
     api.delete(`/api/conversations/${conversationId}`),
 
+  markConversationAsRead: (conversationId) =>
+    api.post(`/api/conversations/${conversationId}/mark-read`),
+
   acceptInvite: (conversationId) =>
     api.post(`/api/conversations/${conversationId}/accept`),
 

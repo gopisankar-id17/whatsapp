@@ -24,7 +24,6 @@ export default function ChatWindow({
   const messagesContainerRef = useRef(null);
   const isLoading = loading && messages.length === 0;
   const [showProfile, setShowProfile] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [contextMenu, setContextMenu] = useState(null);
 
@@ -122,68 +121,7 @@ export default function ChatWindow({
           </div>
         </div>
 
-        {/* Action icons */}
-        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
 
-          {/* ── CALL BUTTON ── */}
-          <CallButton targetUser={callTarget} />
-
-          {/* Search */}
-          <button className="icon-btn" style={{ color: 'var(--wa-text-muted)' }} title="Search">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-              strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8"/>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
-          </button>
-
-          {/* Menu */}
-          <div style={{ position: 'relative' }}>
-            <button
-              className="icon-btn"
-              style={{ color: 'var(--wa-text-muted)' }}
-              title="Menu"
-              onClick={() => setShowMenu((v) => !v)}
-            >
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <circle cx="12" cy="5"  r="1.5"/>
-                <circle cx="12" cy="12" r="1.5"/>
-                <circle cx="12" cy="19" r="1.5"/>
-              </svg>
-            </button>
-            {showMenu && (
-              <>
-                <div
-                  style={{ position: 'fixed', inset: 0, zIndex: 99 }}
-                  onClick={() => setShowMenu(false)}
-                />
-                <div className="menu-dropdown">
-                  <button
-                    className="menu-item"
-                    style={{ color: 'var(--wa-text-primary)' }}
-                    onClick={() => {
-                      setShowMenu(false);
-                      onClearMessages?.(conversation.id);
-                    }}
-                  >
-                    Clear messages
-                  </button>
-                  <button
-                    className="menu-item danger"
-                    onClick={() => {
-                      setShowMenu(false);
-                      if (window.confirm('Delete this chat? This will remove all messages and the conversation.')) {
-                        onDeleteConversation?.(conversation.id);
-                      }
-                    }}
-                  >
-                    Delete chat
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
       </div>
 
       {/* ── Invite Banner ───────────────────────────────────────────────────── */}
