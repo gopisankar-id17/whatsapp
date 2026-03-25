@@ -7,6 +7,7 @@ import SearchBar from './SearchBar';
 import ChatList from './ChatList';
 import { chatService } from '../../services/chatService';
 import { uploadService } from '../../services/uploadService';
+import logo from '../../assets/logo.jpg';
 
 export default function Sidebar({
   conversations,
@@ -102,7 +103,10 @@ export default function Sidebar({
       <aside className="sidebar">
       {/* Simple Header with WhatsApp branding */}
       <div className="sidebar-header-simple">
-        <h2 className="whatsapp-title">WhatsApp</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <img src={logo} alt="WhatsApp Logo" style={{ width: '36px', height: '36px', objectFit: 'contain' }} />
+          <h2 className="whatsapp-title">WhatsApp</h2>
+        </div>
         <div className="sidebar-header-actions">
           {/* Menu with logout */}
           <div style={{ position: 'relative' }}>

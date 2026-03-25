@@ -1,9 +1,10 @@
 import React from 'react';
+import logo from '../../assets/logo.jpg';
 
 export default function WelcomeScreen() {
   return (
     <div className="welcome-screen">
-      <div className="welcome-logo" aria-hidden="true" />
+      <img src={logo} alt="WhatsApp Logo" className="welcome-logo" style={{ width: '240px', height: '240px', objectFit: 'contain' }} />
 
       <h1 className="welcome-title">Download WhatsApp for Windows</h1>
 

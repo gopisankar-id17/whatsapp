@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import logo from '../../assets/logo.jpg';
 
 export default function Login() {
   const { login: doLogin, register } = useAuth();
@@ -117,10 +118,7 @@ export default function Login() {
           <div style={styles.leftPanel} className="left-panel">
             <div style={styles.logoSection}>
               <div style={styles.logoCircle}>
-                <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-                  <path d="M32 6C17.64 6 6 17.64 6 32c0 4.84 1.32 9.38 3.63 13.26L6 58l13.08-3.42A25.85 25.85 0 0 0 32 58c14.36 0 26-11.64 26-26S46.36 6 32 6z" fill="#fff"/>
-                  <path d="M44.5 37.86c-.68-.34-4.02-1.98-4.64-2.2-.62-.23-1.07-.34-1.52.34-.45.68-1.75 2.2-2.14 2.65-.4.45-.79.51-1.47.17-4.02-2.01-6.66-3.59-9.31-8.14-.7-1.21.7-1.12 2-3.74.23-.45.11-.85-.06-1.19-.17-.34-1.52-3.66-2.08-5.01-.55-1.31-1.11-1.13-1.52-1.15-.4-.02-.85-.02-1.3-.02-.45 0-1.19.17-1.81.85-.62.68-2.37 2.31-2.37 5.63 0 3.32 2.43 6.52 2.77 6.97.34.45 4.77 7.28 11.56 10.22 4.3 1.86 5.98 2.02 8.13 1.7 1.31-.19 4.02-1.64 4.59-3.23.56-1.58.56-2.93.39-3.22-.17-.28-.62-.45-1.3-.79z" fill="#25D366"/>
-                </svg>
+                <img src={logo} alt="WhatsApp Logo" style={{ width: '64px', height: '64px', objectFit: 'contain' }} />
               </div>
               <h1 style={styles.whatsappTitle}>WHATSAPP WEB</h1>
             </div>
@@ -171,11 +169,7 @@ export default function Login() {
             <div style={styles.authCard}>
               <div style={styles.cardHeader}>
                 <div style={styles.smallLogo}>
-                  <svg width="48" height="48" viewBox="0 0 64 64" fill="none">
-                    <circle cx="32" cy="32" r="32" fill="#25D366"/>
-                    <path d="M32 10C19.35 10 9 20.35 9 33c0 3.87 1.06 7.5 2.9 10.61L9 54l10.48-2.74A22.86 22.86 0 0 0 32 54c12.65 0 23-10.35 23-21S44.65 10 32 10z" fill="#fff"/>
-                    <path d="M42.13 37.15c-.54-.27-3.22-1.58-3.71-1.76-.49-.18-.85-.27-1.22.27-.36.54-1.4 1.76-1.71 2.12-.32.36-.63.41-1.18.14-3.22-1.61-5.33-2.87-7.45-6.51-.56-.97.56-.9 1.6-2.99.18-.36.09-.68-.05-.95-.14-.27-1.22-2.93-1.66-4.01-.44-1.05-.89-.9-1.22-.92-.32-.01-.68-.01-1.04-.01-.36 0-.95.14-1.45.68-.49.54-1.9 1.85-1.9 4.5 0 2.66 1.95 5.22 2.22 5.58.27.36 3.82 5.82 9.25 7.18 3.44 1.49 4.78 1.62 6.5 1.36 1.05-.15 3.22-1.31 3.67-2.58.45-1.26.45-2.34.31-2.58-.13-.22-.49-.36-1.04-.63z" fill="#25D366"/>
-                  </svg>
+                  <img src={logo} alt="WhatsApp Logo" style={{ width: '48px', height: '48px', objectFit: 'contain' }} />
                 </div>
                 <h2 style={styles.authTitle}>
                   {isLogin ? 'Sign in to WhatsApp' : 'Create your account'}
