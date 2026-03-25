@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
+import LeftNavBar from './LeftNavBar';
+import FilterTabs from './FilterTabs';
 import SearchBar from './SearchBar';
 import ChatList from './ChatList';
 import { chatService } from '../../services/chatService';
@@ -8,6 +10,7 @@ import { uploadService } from '../../services/uploadService';
 
 export default function Sidebar({
   conversations,
+  archivedChats = [],
   selectedChat,
   onSelectChat,
   searchQuery,
@@ -15,11 +18,15 @@ export default function Sidebar({
   loading,
   currentUserId,
   onStartConversation,
+  onArchiveChat,
+  onUnarchiveChat,
+  onDeleteChat,
 }) {
   const { logout, profile, updateProfile: setProfileCtx } = useAuth();
   const { emit } = useSocket();
   const [showMenu, setShowMenu] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState('');
@@ -28,6 +35,22 @@ export default function Sidebar({
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [selectedUser, setSelectedUser] = useState(null); // For user profile modal
+  const [sendingInvitation, setSendingInvitation] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('whatsapp-theme');
+    return saved === 'dark';
+  });
+  const [activeNavTab, setActiveNavTab] = useState('chats');
+  const [activeFilter, setActiveFilter] = useState('all');
+
+  // Apply dark mode to document
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
+    localStorage.setItem('whatsapp-theme', darkMode ? 'dark' : 'light');
+  }, [darkMode]);
+
+  const toggleDarkMode = () => setDarkMode(prev => !prev);
 
   const handleLogout = async () => {
     if (window.confirm('Are you sure you want to logout?')) {
@@ -69,31 +92,18 @@ export default function Sidebar({
   }, [searchQuery]);
 
   return (
-    <aside className="sidebar">
-      {/* Header */}
-      <div className="sidebar-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          {/* Current user avatar */}
-          <div style={{
-            width: 40, height: 40, borderRadius: '50%',
-            background: profile?.avatar_url ? `url(${profile.avatar_url}) center/cover` : 'rgba(255,255,255,0.3)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 14, fontWeight: 600, color: '#fff', flexShrink: 0,
-            overflow: 'hidden',
-          }}>
-            {!profile?.avatar_url && (profile?.name?.charAt(0).toUpperCase() || 'U')}
-          </div>
-          <span className="sidebar-header-title">WhatsApp</span>
-        </div>
-
+    <div className="sidebar-container">
+      <LeftNavBar
+        activeTab={activeNavTab}
+        onTabChange={setActiveNavTab}
+        onProfileClick={() => setShowProfile(true)}
+        totalUnreadCount={conversations.reduce((total, c) => total + (c.unread_count || 0), 0)}
+      />
+      <aside className="sidebar">
+      {/* Simple Header with WhatsApp branding */}
+      <div className="sidebar-header-simple">
+        <h2 className="whatsapp-title">WhatsApp</h2>
         <div className="sidebar-header-actions">
-          {/* New chat icon */}
-          <button className="icon-btn" title="New chat">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg>
-          </button>
-
           {/* Menu with logout */}
           <div style={{ position: 'relative' }}>
             <button
@@ -121,20 +131,30 @@ export default function Sidebar({
                   top: '100%',
                   right: 0,
                   background: '#fff',
-                  borderRadius: 8,
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+                  borderRadius: 3,
+                  boxShadow: '0 2px 5px 0 rgba(11,20,26,.26), 0 2px 10px 0 rgba(11,20,26,.16)',
                   zIndex: 100,
-                  minWidth: 160,
+                  minWidth: 200,
                   overflow: 'hidden',
                   marginTop: 4,
+                  paddingTop: 8,
+                  paddingBottom: 8,
                 }}>
                   <button
-                    onClick={() => { setShowMenu(false); setShowProfile(true); }}
+                    onClick={() => { setShowMenu(false); }}
                     style={menuItemStyle}
                     onMouseEnter={e => e.target.style.background = '#f5f6f6'}
                     onMouseLeave={e => e.target.style.background = 'transparent'}
                   >
-                    Profile
+                    New group
+                  </button>
+                  <button
+                    onClick={() => { setShowMenu(false); }}
+                    style={menuItemStyle}
+                    onMouseEnter={e => e.target.style.background = '#f5f6f6'}
+                    onMouseLeave={e => e.target.style.background = 'transparent'}
+                  >
+                    Starred messages
                   </button>
                   <button
                     onClick={() => { setShowMenu(false); }}
@@ -144,11 +164,18 @@ export default function Sidebar({
                   >
                     Settings
                   </button>
-                  <div style={{ borderTop: '1px solid #e9edef' }} />
+                  <button
+                    onClick={() => { setShowMenu(false); setShowProfile(true); }}
+                    style={menuItemStyle}
+                    onMouseEnter={e => e.target.style.background = '#f5f6f6'}
+                    onMouseLeave={e => e.target.style.background = 'transparent'}
+                  >
+                    Profile
+                  </button>
                   <button
                     onClick={() => { setShowMenu(false); handleLogout(); }}
-                    style={{ ...menuItemStyle, color: '#dc3545' }}
-                    onMouseEnter={e => e.target.style.background = '#fff5f5'}
+                    style={menuItemStyle}
+                    onMouseEnter={e => e.target.style.background = '#f5f6f6'}
                     onMouseLeave={e => e.target.style.background = 'transparent'}
                   >
                     Log out
@@ -160,18 +187,17 @@ export default function Sidebar({
         </div>
       </div>
 
-      {/* User info bar */}
-      <div style={{
-        padding: '8px 16px',
-        background: '#f0f2f5',
-        borderBottom: '1px solid #e9edef',
-        fontSize: 13,
-        color: '#667781',
-      }}>
-        Signed in as <strong style={{ color: '#111b21' }}>{profile?.name || 'User'}</strong>
-      </div>
-
       <SearchBar value={searchQuery} onChange={onSearchChange} />
+
+      {/* Filter Tabs */}
+      {!searchQuery && (
+        <FilterTabs
+          activeFilter={activeFilter}
+          onFilterChange={setActiveFilter}
+          unreadCount={conversations.reduce((total, c) => total + (c.unread_count || 0), 0)}
+          favouriteCount={conversations.filter(c => c.is_favourite).length}
+        />
+      )}
 
       {/* Search results dropdown */}
       {searchQuery && searchQuery.trim().length >= 2 && (
@@ -197,7 +223,7 @@ export default function Sidebar({
                 key={u.id}
                 style={resultButton}
                 onClick={() => {
-                  onStartConversation(u);
+                  setSelectedUser(u);
                   onSearchChange('');
                   setSearchResults([]);
                 }}
@@ -217,13 +243,64 @@ export default function Sidebar({
         <div style={{ padding: 20, textAlign: 'center', color: '#667781', fontSize: 14 }}>
           Loading chats...
         </div>
+      ) : showArchived ? (
+        /* Archived Chats Panel */
+        <>
+          <div className="archived-header">
+            <button className="back-btn" onClick={() => setShowArchived(false)}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"/>
+                <polyline points="12 19 5 12 12 5"/>
+              </svg>
+            </button>
+            <span>Archived</span>
+          </div>
+          {archivedChats.length === 0 ? (
+            <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--wa-text-muted)', fontSize: '14px' }}>
+              No archived chats
+            </div>
+          ) : (
+            <div className="chat-list">
+              {archivedChats.map((conv, idx) => (
+                <ArchivedChatItem
+                  key={conv.id}
+                  conversation={conv}
+                  colorIndex={idx % 7}
+                  currentUserId={currentUserId}
+                  onUnarchive={onUnarchiveChat}
+                  onDelete={onDeleteChat}
+                  onSelect={() => {
+                    onSelectChat(conv);
+                    setShowArchived(false);
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </>
       ) : (
-        <ChatList
-          conversations={conversations}
-          selectedChat={selectedChat}
-          onSelectChat={onSelectChat}
-          currentUserId={currentUserId}
-        />
+        <>
+          {/* Archived Section */}
+          {archivedChats.length > 0 && (
+            <div className="archived-section" onClick={() => setShowArchived(true)}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="21 8 21 21 3 21 3 8"/>
+                <rect x="1" y="3" width="22" height="5"/>
+                <line x1="10" y1="12" x2="14" y2="12"/>
+              </svg>
+              Archived
+              <span className="archived-count">{archivedChats.length}</span>
+            </div>
+          )}
+          <ChatList
+            conversations={conversations}
+            selectedChat={selectedChat}
+            onSelectChat={onSelectChat}
+            currentUserId={currentUserId}
+            onArchive={onArchiveChat}
+            onDelete={onDeleteChat}
+          />
+        </>
       )}
 
       {/* Profile Modal */}
@@ -329,7 +406,67 @@ export default function Sidebar({
           </div>
         </>
       )}
+
+      {/* User Profile Modal (for sending invitations) */}
+      {selectedUser && (
+        <>
+          <div className="modal-backdrop" onClick={() => setSelectedUser(null)} />
+          <div className="modal-card">
+            <div className="modal-header">
+              <h3>User Profile</h3>
+              <button className="icon-btn" style={{ color: '#667781' }} onClick={() => setSelectedUser(null)}>
+                ✕
+              </button>
+            </div>
+
+            <div className="profile-avatar-block" style={{ textAlign: 'center', marginBottom: '20px' }}>
+              <div className="profile-avatar" style={{
+                backgroundImage: selectedUser.avatar_url ? `url(${selectedUser.avatar_url})` : 'none',
+                margin: '0 auto'
+              }}>
+                {!selectedUser.avatar_url && (selectedUser.name?.[0]?.toUpperCase() || 'U')}
+              </div>
+              <h4 style={{ margin: '12px 0 4px', fontSize: '18px', color: '#111b21' }}>
+                {selectedUser.name || 'Unknown User'}
+              </h4>
+              {selectedUser.email && (
+                <p style={{ margin: '0 0 12px', fontSize: '14px', color: '#667781' }}>
+                  {selectedUser.email}
+                </p>
+              )}
+              <p style={{ margin: '0', fontSize: '14px', color: '#667781' }}>
+                {selectedUser.is_online ? '🟢 Online' : `Last seen: ${new Date(selectedUser.last_seen || Date.now()).toLocaleDateString()}`}
+              </p>
+            </div>
+
+            <div className="modal-footer">
+              <button className="outline-btn" onClick={() => setSelectedUser(null)}>
+                Cancel
+              </button>
+              <button
+                className="primary-btn"
+                disabled={sendingInvitation}
+                onClick={async () => {
+                  setSendingInvitation(true);
+                  try {
+                    await onStartConversation(selectedUser);
+                    setSelectedUser(null);
+                  } catch (err) {
+                    console.error('Failed to send invitation:', err);
+                    // You can add error handling here
+                  } finally {
+                    setSendingInvitation(false);
+                  }
+                }}
+              >
+                {sendingInvitation ? 'Sending...' : 'Send Invitation'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </aside>
+    </div>
   );
 }
 
@@ -378,3 +515,101 @@ const avatarCircle = {
   color: '#008069',
   flexShrink: 0,
 };
+
+// Archived Chat Item component
+function ArchivedChatItem({ conversation, colorIndex, currentUserId, onUnarchive, onDelete, onSelect }) {
+  const [showMenu, setShowMenu] = useState(false);
+
+  const participants = conversation.conversation_participants || [];
+  const other = participants.find((p) => `${p.user_id}` !== `${currentUserId}`) || participants[0];
+
+  const name = other?.profiles?.name || other?.profiles?.email || 'Unknown';
+  const avatarUrl = other?.profiles?.avatar_url;
+  const lastMessage = conversation.messages?.[0]?.text || 'No messages yet';
+  const time = conversation.last_message_at
+    ? new Date(conversation.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : '';
+  const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+
+  const handleMenuClick = (e) => {
+    e.stopPropagation();
+    setShowMenu(!showMenu);
+  };
+
+  const handleUnarchive = (e) => {
+    e.stopPropagation();
+    setShowMenu(false);
+    onUnarchive?.(conversation.id);
+  };
+
+  const handleDelete = (e) => {
+    e.stopPropagation();
+    setShowMenu(false);
+    if (window.confirm('Delete this chat? This will remove it permanently.')) {
+      onDelete?.(conversation.id);
+    }
+  };
+
+  return (
+    <div className="chat-item" onClick={onSelect}>
+      <div className="avatar-wrapper">
+        <div
+          className={`avatar avatar-colors-${colorIndex}`}
+          style={avatarUrl ? { backgroundImage: `url(${avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}
+        >
+          {!avatarUrl && initials}
+        </div>
+      </div>
+      <div className="chat-info">
+        <div className="chat-info-top">
+          <span className="chat-name">{name}</span>
+          <span className="chat-time">{time}</span>
+        </div>
+        <div className="chat-info-bottom">
+          <span className="chat-last-message">{lastMessage}</span>
+        </div>
+      </div>
+
+      {/* Three dots menu */}
+      <div className="chat-item-menu" style={{ position: 'relative' }}>
+        <button
+          className="chat-item-menu-btn"
+          onClick={handleMenuClick}
+          title="Menu"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+            <circle cx="12" cy="5" r="1.5"/>
+            <circle cx="12" cy="12" r="1.5"/>
+            <circle cx="12" cy="19" r="1.5"/>
+          </svg>
+        </button>
+
+        {showMenu && (
+          <>
+            <div
+              className="chat-item-menu-backdrop"
+              onClick={(e) => { e.stopPropagation(); setShowMenu(false); }}
+            />
+            <div className="chat-item-dropdown">
+              <button className="chat-item-dropdown-item" onClick={handleUnarchive}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="21 8 21 21 3 21 3 8"/>
+                  <rect x="1" y="3" width="22" height="5"/>
+                  <line x1="10" y1="12" x2="14" y2="12"/>
+                </svg>
+                Unarchive chat
+              </button>
+              <button className="chat-item-dropdown-item danger" onClick={handleDelete}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+                Delete chat
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

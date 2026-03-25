@@ -1,0 +1,26 @@
+# Render Blueprint - Deploy to Render.com
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: whatsapp-server
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false  # Set this manually in Render dashboard
+      - key: JWT_SECRET
+        generateValue: true  # Render will generate a secure random value
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: CLIENT_URL
+        sync: false  # Set to your Vercel URL after deployment
+      - key: ALLOW_ALL_ORIGINS
+        value: false
+      - key: PORT
+        value: 10000  # Render uses port 10000 by default
+    healthCheckPath: /health

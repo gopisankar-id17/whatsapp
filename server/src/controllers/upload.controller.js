@@ -1,5 +1,9 @@
-const { supabaseAdmin } = require('../config/supabase');
 const { randomUUID } = require('crypto');
+const fs = require('fs');
+const path = require('path');
+
+// Simple file upload without Supabase storage
+// For production, use AWS S3, Cloudinary, or similar
 
 // POST /api/upload/media
 const uploadMedia = async (request, reply) => {

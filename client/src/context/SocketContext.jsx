@@ -4,13 +4,15 @@ import { useAuth } from './AuthContext';
 
 const SocketContext = createContext(null);
 
-const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'http://localhost:3001';
+const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'http://localhost:3002';
 
 export function SocketProvider({ children }) {
   const { token, isAuthenticated } = useAuth();
   const socketRef                  = useRef(null);
+  const joinedRoomsRef             = useRef(new Set());
   const [isConnected, setIsConnected] = useState(false);
-  
+  const [socketId, setSocketId] = useState(0); // Track socket instance changes
+
 
   useEffect(() => {
     if (!isAuthenticated || !token) {
@@ -19,36 +21,49 @@ export function SocketProvider({ children }) {
         socketRef.current.disconnect();
         socketRef.current = null;
         setIsConnected(false);
+        setSocketId(0);
       }
       return;
     }
 
     // Connect with Supabase token
-    socketRef.current = io(SOCKET_URL, {
+    const socket = io(SOCKET_URL, {
       auth: { token },
       transports: ['websocket'],
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 10,
       reconnectionDelay: 1000,
     });
 
-    socketRef.current.on('connect', () => {
-      console.log('Socket connected:', socketRef.current.id);
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      console.log('[Frontend] Socket connected:', socket.id);
       setIsConnected(true);
+      setSocketId(prev => prev + 1); // Trigger re-registration of listeners
+      // Re-join any rooms we had joined before a disconnect
+      joinedRoomsRef.current.forEach((roomId) => {
+        console.log('[Frontend] Re-joining room:', roomId);
+        socket.emit('join_room', roomId);
+      });
     });
 
-    socketRef.current.on('disconnect', (reason) => {
+    socket.on('pong', (data) => {
+      console.log('[Frontend] Pong received from server:', data);
+    });
+
+    socket.on('disconnect', (reason) => {
       console.log('Socket disconnected:', reason);
       setIsConnected(false);
     });
 
-    socketRef.current.on('connect_error', (err) => {
+    socket.on('connect_error', (err) => {
       console.error('Socket connection error:', err.message);
       setIsConnected(false);
     });
 
     return () => {
-      socketRef.current?.disconnect();
+      socket.disconnect();
       socketRef.current = null;
     };
   }, [token, isAuthenticated]);
@@ -61,27 +76,50 @@ export function SocketProvider({ children }) {
   }, []);
 
   // ── Listen to an event ─────────────────────────────────────
+  // Include socketId in dependency to trigger re-registration when socket reconnects
   const on = useCallback((event, callback) => {
-    socketRef.current?.on(event, callback);
-  }, []);
+    const socket = socketRef.current;
+    if (socket) {
+      socket.on(event, callback);
+    }
+  }, [socketId]);
 
   // ── Remove listener ────────────────────────────────────────
   const off = useCallback((event, callback) => {
-    socketRef.current?.off(event, callback);
-  }, []);
+    const socket = socketRef.current;
+    if (socket) {
+      socket.off(event, callback);
+    }
+  }, [socketId]);
 
   // ── Join a conversation room ───────────────────────────────
   const joinRoom = useCallback((conversationId) => {
-    emit('join_room', conversationId);
-  }, [emit]);
+    if (!conversationId) return;
+    console.log('[Frontend] Joining room:', conversationId);
+    joinedRoomsRef.current.add(conversationId);
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('join_room', conversationId);
+    }
+  }, []);
 
   // ── Leave a conversation room ──────────────────────────────
   const leaveRoom = useCallback((conversationId) => {
-    emit('leave_room', conversationId);
+    if (!conversationId) return;
+    joinedRoomsRef.current.delete(conversationId);
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('leave_room', conversationId);
+    }
+  }, []);
+
+  // ── Test ping ──────────────────────────────────────────────
+  const ping = useCallback(() => {
+    console.log('[Frontend] Sending ping to server');
+    emit('ping', { message: 'Hello from client!', timestamp: new Date().toISOString() });
   }, [emit]);
 
   // ── Send a message via socket ──────────────────────────────
   const sendMessage = useCallback((conversationId, text, mediaUrl = '', mediaType = '') => {
+    console.log('[Frontend] Sending message to:', conversationId, { text, mediaUrl, mediaType });
     emit('send_message', { conversationId, text, mediaUrl, mediaType });
   }, [emit]);
 
@@ -95,10 +133,21 @@ export function SocketProvider({ children }) {
     emit('message_read', { conversationId, messageIds });
   }, [emit]);
 
+  // ── Add reaction to a message ────────────────────────────────
+  const addReaction = useCallback((messageId, conversationId, reaction) => {
+    emit('add_reaction', { messageId, conversationId, reaction });
+  }, [emit]);
+
+  // ── Remove reaction from a message ───────────────────────────
+  const removeReaction = useCallback((messageId, conversationId, reaction) => {
+    emit('remove_reaction', { messageId, conversationId, reaction });
+  }, [emit]);
+
   return (
     <SocketContext.Provider value={{
       socket: socketRef.current,
       isConnected,
+      socketId, // Expose this so components can re-register listeners
       emit,
       on,
       off,
@@ -107,6 +156,9 @@ export function SocketProvider({ children }) {
       sendMessage,
       sendTyping,
       markRead,
+      addReaction,
+      removeReaction,
+      ping, // Add ping test function
     }}>
       {children}
     </SocketContext.Provider>
