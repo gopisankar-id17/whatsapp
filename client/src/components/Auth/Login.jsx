@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 
-export default function login() {
-  const { login, register } = useAuth();
+export default function Login() {
+  const { login: doLogin, register } = useAuth();
   const [isLogin, setIsLogin]   = useState(true);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
@@ -49,7 +49,7 @@ export default function login() {
 
     try {
       if (isLogin) {
-        await login(form.email.trim(), form.password);
+        await doLogin(form.email.trim(), form.password);
       } else {
         await register(form.name.trim(), form.email.trim(), form.password);
       }
