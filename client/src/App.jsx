@@ -7,7 +7,7 @@ import { CallProvider } from './context/CallContext';
 import Sidebar       from './components/Sidebar/Sidebar';
 import ChatWindow    from './components/Chat/ChatWindow';
 import WelcomeScreen from './components/Chat/WelcomeScreen';
-import Login         from './components/Auth/login';
+import Login         from './components/Auth/Login';
 import CallUI        from './components/Call/CallUI';
 import { chatService } from './services/chatService';
 import './styles/global.css';
